@@ -1,0 +1,122 @@
+[
+  {
+    "protocol": "HTTP",
+    "connections": 1,
+    "server_cpu": 0.0,
+    "server_mem": 45.015625,
+    "server_base_mem": 44.9375,
+    "client_cpu": 0.0,
+    "client_mem": 37.921875,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTP",
+    "connections": 1000,
+    "server_cpu": 0.0,
+    "server_mem": 155.53125,
+    "server_base_mem": 44.453125,
+    "client_cpu": 0.0,
+    "client_mem": 107.90625,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTP",
+    "connections": 5000,
+    "server_cpu": 0.0,
+    "server_mem": 598.953125,
+    "server_base_mem": 44.421875,
+    "client_cpu": 0.0,
+    "client_mem": 391.3125,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTP",
+    "connections": 10000,
+    "server_cpu": 2.1,
+    "server_mem": 1154.5625,
+    "server_base_mem": 44.328125,
+    "client_cpu": 4.4,
+    "client_mem": 737.59375,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTP",
+    "connections": 20000,
+    "server_cpu": 0.0,
+    "server_mem": 199.03125,
+    "server_base_mem": 44.5,
+    "client_cpu": 0.6,
+    "client_mem": 160.84375,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTP",
+    "connections": 30000,
+    "server_cpu": 0.0,
+    "server_mem": 1724.78125,
+    "server_base_mem": 44.703125,
+    "client_cpu": 73.3,
+    "client_mem": 1196.4375,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTPS",
+    "connections": 1,
+    "server_cpu": 0.0,
+    "server_mem": 45.46875,
+    "server_base_mem": 45.46875,
+    "client_cpu": 0.0,
+    "client_mem": 0.0,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTPS",
+    "connections": 1000,
+    "server_cpu": 0.0,
+    "server_mem": 114.3125,
+    "server_base_mem": 45.125,
+    "client_cpu": 0.0,
+    "client_mem": 168.796875,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTPS",
+    "connections": 5000,
+    "server_cpu": 0.0,
+    "server_mem": 71.421875,
+    "server_base_mem": 45.171875,
+    "client_cpu": 65.5,
+    "client_mem": 114.46875,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTPS",
+    "connections": 10000,
+    "server_cpu": 61.7,
+    "server_mem": 361.71875,
+    "server_base_mem": 45.03125,
+    "client_cpu": 68.7,
+    "client_mem": 623.0625,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTPS",
+    "connections": 20000,
+    "server_cpu": 1.1,
+    "server_mem": 886.296875,
+    "server_base_mem": 45.25,
+    "client_cpu": 60.3,
+    "client_mem": 1670.96875,
+    "client_base_mem": 28.0
+  },
+  {
+    "protocol": "HTTPS",
+    "connections": 30000,
+    "server_cpu": 0.0,
+    "server_mem": 382.0,
+    "server_base_mem": 45.015625,
+    "client_cpu": 63.4,
+    "client_mem": 742.8125,
+    "client_base_mem": 28.0
+  }
+]

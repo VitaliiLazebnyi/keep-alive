@@ -2,4 +2,5 @@
 *.err
 *.pid
 .gem/
+vendor/
 gems_unpacked/
