@@ -4,6 +4,7 @@
 require 'sorbet-runtime'
 require 'open3'
 require 'json'
+require 'fileutils'
 
 module KeepAlive
   class Harness
@@ -33,6 +34,7 @@ module KeepAlive
       @export_json = export_json
       @target_duration = target_duration
       @log_dir = T.let(File.expand_path('../../logs', __dir__), String)
+      @cpu_prev = T.let({}, T::Hash[Integer, T::Hash[Symbol, T.untyped]])
     end
 
     sig { void }
@@ -106,13 +108,15 @@ module KeepAlive
       end
     end
 
-    sig { params(pid: T.nilable(Integer)).returns([String, String, Float]) }
+    sig { params(pid: T.nilable(Integer)).returns([String, String, Float, Integer]) }
     def process_stats(pid)
-      return ['EXTERNAL', 'EXTERNAL', 0.0] if pid.nil?
+      return ['EXTERNAL', 'EXTERNAL', 0.0, 0] if pid.nil?
 
       begin
         proc_stat = File.read("/proc/#{pid}/stat").split
         proc_statm = File.read("/proc/#{pid}/statm").split
+        status_data = File.read("/proc/#{pid}/status")
+        threads = status_data.match(/Threads:\s+(\d+)/)&.[](1)&.to_i || 1
 
         rss_pages = T.must(proc_statm[1]).to_i
         page_size = 4096 # standard hardcode fallback
@@ -127,26 +131,44 @@ module KeepAlive
         rss_kb = (rss_pages * page_size) / 1024.0
         rss_mb = (rss_kb / 1024.0).round(2)
 
-        # Basic CPU calculation from utime/stime
         utime = T.must(proc_stat[13]).to_f
         stime = T.must(proc_stat[14]).to_f
-        total_time = (utime + stime) / 100.0 # assumes USER_HZ=100
-        cpu_perc = (total_time / (Time.now.utc - @start_time)).round(1)
+        total_ticks = utime + stime
 
-        [cpu_perc.to_s, "#{rss_mb} MB", rss_kb]
+        prev = @cpu_prev[pid]
+        now = Time.now.utc
+
+        cpu_perc = 0.0
+        if prev
+          time_diff = now - prev[:time]
+          tick_diff = total_ticks - prev[:ticks]
+          hz = 100.0
+          cpu_perc = ((tick_diff / hz) / time_diff * 100).round(1) if time_diff.positive?
+        end
+
+        @cpu_prev[pid] = { ticks: total_ticks, time: now }
+
+        [cpu_perc.to_s, "#{rss_mb} MB", rss_kb, threads]
       rescue StandardError
         # Fallback to direct Ruby API logic when /proc isn't native (e.g. macOS)
         begin
           out, _s = Open3.capture2('ps', '-o', '%cpu,rss', '-p', pid.to_s)
           lines = out.strip.split("\n")
-          return ['N/A', 'N/A', 0.0] if lines.size < 2
+          return ['N/A', 'N/A', 0.0, 0] if lines.size < 2
 
           cpu, rss_kb_str = T.must(lines[1]).strip.split(/\s+/)
           rss_kb_val = T.must(rss_kb_str).to_f
           rss_mb_val = (rss_kb_val / 1024.0).round(2)
-          [T.must(cpu), "#{rss_mb_val} MB", rss_kb_val]
+
+          threads = begin
+            out2, _s = Open3.capture2("ps -M -p #{pid}")
+            [out2.strip.split("\n").size - 1, 0].max
+          rescue StandardError; 1
+          end
+
+          [T.must(cpu), "#{rss_mb_val} MB", rss_kb_val, threads]
         rescue StandardError
-          ['N/A', 'N/A', 0.0]
+          ['N/A', 'N/A', 0.0, 0]
         end
       end
     end
@@ -155,8 +177,19 @@ module KeepAlive
     def count_established_connections(pid)
       return 0 if pid.nil?
 
-      out, _s = Open3.capture2("lsof -p #{pid} -n -P")
-      out.scan('ESTABLISHED').count
+      if File.directory?("/proc/#{pid}/fd")
+        Dir.entries("/proc/#{pid}/fd").count do |fd|
+          next false if fd == '.' || fd == '..'
+          begin
+            File.readlink("/proc/#{pid}/fd/#{fd}").start_with?('socket:[')
+          rescue StandardError
+            false
+          end
+        end
+      else
+        out, _s = Open3.capture2("lsof -p #{pid} -n -P")
+        out.scan('ESTABLISHED').count
+      end
     rescue StandardError
       0
     end
@@ -182,27 +215,11 @@ module KeepAlive
         end
 
         time = Time.now.utc.strftime('%H:%M:%S')
-        server_cpu, server_mem, server_kb = process_stats(@server_pid)
-        client_cpu, client_mem, client_kb = process_stats(@client_pid)
+        server_cpu, server_mem, server_kb, server_threads = process_stats(@server_pid)
+        client_cpu, client_mem, client_kb, client_threads = process_stats(@client_pid)
 
-        srv_cpu_info = if @server_pid
-                         threads = begin
-                           out, _s = Open3.capture2("ps -M -p #{@server_pid}")
-                           [out.strip.split("\n").size - 1, 0].max
-                         rescue StandardError; 0
-                         end
-                         "#{server_cpu}% / #{threads}T"
-                       else
-                         'EXTERNAL'
-                       end
-
-        cli_cpu_info = begin
-          out, _s = Open3.capture2("ps -M -p #{@client_pid}")
-          threads = [out.strip.split("\n").size - 1, 0].max
-          "#{client_cpu}% / #{threads}T"
-        rescue StandardError
-          "#{client_cpu}% / 0T"
-        end
+        srv_cpu_info = @server_pid ? "#{server_cpu}% / #{server_threads}T" : 'EXTERNAL'
+        cli_cpu_info = "#{client_cpu}% / #{client_threads}T"
 
         active_client = count_established_connections(@client_pid)
         active_server = count_established_connections(@server_pid)

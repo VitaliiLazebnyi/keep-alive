@@ -7,8 +7,10 @@ require 'uri'
 require 'openssl'
 require 'socket'
 require 'async'
+require 'async'
 require 'async/semaphore'
-
+require 'time'
+require 'fileutils'
 module KeepAlive
   class Client
     extend T::Sig
@@ -155,7 +157,7 @@ module KeepAlive
       return base_seconds if @jitter.zero?
 
       variance = base_seconds * @jitter
-      base_seconds + rand(-variance..variance)
+      [0.0, base_seconds + rand(-variance..variance)].max
     end
 
     sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
@@ -173,7 +175,8 @@ module KeepAlive
         args = { read_timeout: @read_timeout.positive? ? @read_timeout : nil }
 
         begin
-          ip = Addrinfo.getaddrinfo(T.must(uri.host), uri.port, nil, :STREAM).first&.ip_address
+          ip_info = Addrinfo.getaddrinfo(T.must(uri.host), uri.port, nil, :STREAM)
+          ip = (ip_info.find(&:ipv4?) || ip_info.first)&.ip_address
           args[:ipaddr] = ip if ip
         rescue SocketError => _e
           nil # Fallback to Net::HTTP implicit DNS resolve on crash natively
@@ -223,6 +226,7 @@ module KeepAlive
       http_opts = build_http_opts(client_index, http_args)
 
       Net::HTTP.start(T.must(uri.host), uri.port, **http_opts) do |http|
+        http.max_retries = 0 if http.respond_to?(:max_retries=)
         log_info("[Client #{client_index}] Connection established to #{uri.host}.")
 
         if @slowloris_delay.positive?

@@ -7,6 +7,11 @@ require 'rack'
 require 'rackup'
 require 'rackup/handler/falcon'
 require 'openssl'
+require 'io/endpoint/host_endpoint'
+require 'io/endpoint/ssl_endpoint'
+require 'async'
+require 'falcon/server'
+require 'protocol/rack/adapter'
 
 module KeepAlive
   class Server
@@ -19,18 +24,11 @@ module KeepAlive
           [
             200,
             {
-              'Content-Type' => 'text/event-stream',
-              'Cache-Control' => 'no-cache'
+              'Content-Type' => 'text/plain',
+              'Content-Length' => '2',
+              'Connection' => 'keep-alive'
             },
-            Enumerator.new do |yielder|
-              loop do
-                yielder << "data: ping\n\n"
-                sleep 15
-              end
-            rescue Errno::EPIPE, IOError
-              # Justified Exception: The architecture requires dropping disconnected clients without emitting stacktraces.
-              nil
-            end
+            ['OK']
           ]
         end,
         T.proc.params(arg0: T::Hash[String, Object]).returns(T::Array[T.any(Integer, T::Hash[String, String], Object)])
@@ -42,12 +40,23 @@ module KeepAlive
       if use_https
         puts "[Server] Binding natively to HTTPS over port #{port}"
         ssl_context = generate_ssl_context
-        Rackup::Handler::Falcon.run(@app, Host: '0.0.0.0', Port: port, SSLEnable: true,
-                                          ssl_context: ssl_context) do |_server|
+        
+        T.unsafe(self).Sync do |task|
+          endpoint = T.unsafe(IO::Endpoint).tcp('0.0.0.0', port)
+          secure_endpoint = T.unsafe(IO::Endpoint::SSLEndpoint).new(endpoint, ssl_context: ssl_context)
+          
+          adapter = T.unsafe(::Protocol::Rack::Adapter).new(@app)
+          server = T.unsafe(::Falcon::Server).new(adapter, secure_endpoint, protocol: T.unsafe(Async::HTTP::Protocol::HTTP1), scheme: 'https')
+          
+          server_task = server.run
+          
           trap('INT') do
             puts "\n[Server] Shutting down immediately..."
+            task.stop
             exit(0)
           end
+          
+          server_task.wait
         end
       else
         puts "[Server] Binding natively to plaintext HTTP over port #{port}"
