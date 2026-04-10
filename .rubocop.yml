@@ -36,8 +36,9 @@ Style/Documentation:
   Enabled: false
 
 Metrics/BlockLength:
-  Max: 200
+  Max: 300
+  Exclude:
+    - 'spec/**/*'
 
 Metrics/AbcSize:
   Max: 100
-

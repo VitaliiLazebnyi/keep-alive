@@ -6,12 +6,127 @@ require 'bundler/setup'
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'keep_alive/client'
 
-connections_arg = ARGV.find { |arg| arg.start_with?('--connections_count=') }
-connections = connections_arg ? connections_arg.split('=', 2)[1].to_i : 1000
+require 'optparse'
 
-use_https = ARGV.include?('--https')
-target_url_arg = ARGV.find { |arg| arg.start_with?('--url=') }
-target_url = target_url_arg ? target_url_arg.split('=', 2)[1] : nil
+options = {
+  connections: 1000,
+  use_https: false,
+  target_url: nil,
+  verbose: false,
+  ping: true,
+  ping_period: 5,
+  keep_alive_timeout: 0.0,
+  connections_per_second: 0,
+  max_concurrent_connections: nil,
+  reopen_closed_connections: false,
+  reopen_interval: 1.0,
+  read_timeout: 0.0,
+  user_agent: 'Keep-Alive Test',
+  ramp_up: 0.0,
+  bind_ips: [],
+  proxy_pool: [],
+  qps_per_connection: 0,
+  headers: {},
+  slowloris_delay: 0.0
+}
 
-client = KeepAlive::Client.new(connections: connections, target_url: target_url, use_https: use_https)
+OptionParser.new do |opts|
+  opts.banner = 'Usage: client [options]'
+
+  opts.on('--connections_count=COUNT', Integer, 'Total connections per session') do |v|
+    options[:connections] = v
+  end
+  opts.on('--https', 'Use HTTPS natively') do
+    options[:use_https] = true
+  end
+  opts.on('--url=URL', String, 'Target external URLs (comma separated)') do |v|
+    options[:target_urls] = v.split(',')
+  end
+  opts.on('--verbose', 'Verbose logging') do
+    options[:verbose] = true
+  end
+  opts.on('--[no-]ping', 'Ping connections to keep alive (default: true)') do |v|
+    options[:ping] = v
+  end
+  opts.on('--ping_period=SECONDS', Integer, 'Ping period') do |v|
+    options[:ping_period] = v
+  end
+  opts.on('--keep_alive_timeout=SECONDS', Float, 'Keep-alive timeout (0 for unlimited)') do |v|
+    options[:keep_alive_timeout] = v
+  end
+  opts.on('--connections_per_second=RATE', Integer, 'Connections per second (0 for unlimited)') do |v|
+    options[:connections_per_second] = v
+  end
+  opts.on('--max_concurrent_connections=COUNT', Integer, 'Max concurrent connections') do |v|
+    options[:max_concurrent_connections] = v
+  end
+  opts.on('--reopen_closed_connections', 'Reopen closed connections') do
+    options[:reopen_closed_connections] = true
+  end
+  opts.on('--reopen_interval=SECONDS', Float, 'Delay before reopening') do |v|
+    options[:reopen_interval] = v
+  end
+  opts.on('--read_timeout=SECONDS', Float, 'Read timeout (0 for unlimited)') do |v|
+    options[:read_timeout] = v
+  end
+  opts.on('--user_agent=AGENT', String, 'User Agent') do |v|
+    options[:user_agent] = v
+  end
+  opts.on('--jitter=FACTOR', Float, 'Randomize sleep intervals') do |v|
+    options[:jitter] = v
+  end
+  opts.on('--track_status_codes', 'Track specific HTTP status codes') do
+    options[:track_status_codes] = true
+  end
+  opts.on('--ramp_up=SECONDS', Float, 'Smoothly scale traffic over seconds (overrides rate)') do |v|
+    options[:ramp_up] = v
+  end
+  opts.on('--bind_ips=IPS', String, 'Comma-separated local IPs to bind to') do |v|
+    options[:bind_ips] = v.split(',')
+  end
+  opts.on('--proxy_pool=URIS', String, 'Comma-separated proxy URIs to map sequentially') do |v|
+    options[:proxy_pool] = v.split(',')
+  end
+  opts.on('--qps_per_connection=RATE', Integer, 'Active requests sent per second per payload') do |v|
+    options[:qps_per_connection] = v
+  end
+  opts.on('--headers=LIST', String, 'Comma-separated headers (e.g. "Auth:Bearer XXX,Host:test.com")') do |v|
+    v.split(',').each do |pair|
+      key, value = pair.split(':', 2)
+      options[:headers][key.strip] = value.strip if key && value
+    end
+  end
+  opts.on('--slowloris_delay=SECONDS', Float, 'Mathematical gap between byte payloads holding threads open') do |v|
+    options[:slowloris_delay] = v
+  end
+end.parse!(ARGV)
+
+options[:max_concurrent_connections] ||= options[:connections]
+options[:target_urls] ||= []
+options[:jitter] ||= 0.0
+options[:track_status_codes] ||= false
+
+client = KeepAlive::Client.new(
+  connections: options[:connections],
+  target_urls: options[:target_urls],
+  use_https: options[:use_https],
+  verbose: options[:verbose],
+  ping: options[:ping],
+  ping_period: options[:ping_period],
+  keep_alive_timeout: options[:keep_alive_timeout],
+  connections_per_second: options[:connections_per_second],
+  max_concurrent_connections: options[:max_concurrent_connections],
+  reopen_closed_connections: options[:reopen_closed_connections],
+  reopen_interval: options[:reopen_interval],
+  read_timeout: options[:read_timeout],
+  user_agent: options[:user_agent],
+  jitter: options[:jitter],
+  track_status_codes: options[:track_status_codes],
+  ramp_up: options[:ramp_up],
+  bind_ips: options[:bind_ips],
+  proxy_pool: options[:proxy_pool],
+  qps_per_connection: options[:qps_per_connection],
+  headers: options[:headers],
+  slowloris_delay: options[:slowloris_delay]
+)
 client.start

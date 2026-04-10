@@ -6,12 +6,56 @@ require 'bundler/setup'
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'keep_alive/harness'
 
-connections_arg = ARGV.find { |arg| arg.start_with?('--connections_count=') }
-connections = connections_arg ? connections_arg.split('=', 2)[1].to_i : 1000
+require 'optparse'
 
-use_https = ARGV.include?('--https')
-target_url_arg = ARGV.find { |arg| arg.start_with?('--url=') }
-target_url = target_url_arg ? target_url_arg.split('=', 2)[1] : nil
+# Preserve original args to pass identically to client spawn
+original_args = ARGV.dup
 
-harness = KeepAlive::Harness.new(connections: connections, target_url: target_url, use_https: use_https)
+options = {
+  connections: 1000,
+  use_https: false,
+  target_urls: [],
+  export_json: nil,
+  target_duration: 0.0
+}
+
+OptionParser.new do |opts|
+  opts.banner = 'Usage: harness [options]'
+
+  # We parse minimally what Harness needs right now
+  opts.on('--connections_count=COUNT', Integer) { |v| options[:connections] = v }
+  opts.on('--https') { options[:use_https] = true }
+  opts.on('--url=URL', String) { |v| options[:target_urls] = v.split(',') }
+  opts.on('--export_json=FILE', String) { |v| options[:export_json] = v }
+  opts.on('--target_duration=SECONDS', Float) { |v| options[:target_duration] = v }
+
+  # Ignore all other options (they belong to Client)
+  opts.on('--verbose') { nil }
+  opts.on('--[no-]ping') { nil }
+  opts.on('--ping_period=SECONDS', Integer) { nil }
+  opts.on('--keep_alive_timeout=SECONDS', Float) { nil }
+  opts.on('--connections_per_second=RATE', Integer) { nil }
+  opts.on('--max_concurrent_connections=COUNT', Integer) { nil }
+  opts.on('--reopen_closed_connections') { nil }
+  opts.on('--reopen_interval=SECONDS', Float) { nil }
+  opts.on('--read_timeout=SECONDS', Float) { nil }
+  opts.on('--user_agent=AGENT', String) { nil }
+  opts.on('--jitter=FACTOR', Float) { nil }
+  opts.on('--track_status_codes') { nil }
+  opts.on('--ramp_up=SECONDS', Float) { nil }
+  opts.on('--bind_ips=IPS', String) { nil }
+  opts.on('--proxy_pool=URIS', String) { nil }
+  opts.on('--qps_per_connection=RATE', Integer) { nil }
+  opts.on('--headers=LIST', String) { nil }
+  opts.on('--slowloris_delay=SECONDS', Float) { nil }
+end.parse!(ARGV)
+
+harness = KeepAlive::Harness.new(
+  connections: options[:connections],
+  target_urls: options[:target_urls],
+  use_https: options[:use_https],
+  client_args: original_args,
+  export_json: options[:export_json],
+  target_duration: options[:target_duration]
+)
 harness.start

@@ -43,9 +43,29 @@ You engage all functions purely through the root `harness.rb` wrapper.
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `--connections_count=` | Integer | Optional | The exact number of concurrent TCP sessions/fibers you wish to spawn natively. Defaults to 1000. e.g., `--connections_count=100000` |
-| `--https` | Flag | Optional | Configures TLS. Instructs `server.rb` to generate and enforce self-signed OpenSSL certificates over port `8443`, while overriding `client.rb` payloads securely with `verify_mode: OpenSSL::SSL::VERIFY_NONE`. |
-| `--url=` | String | Optional | Triggers **External Target Mode**. Expects a full URI (e.g. `--url=http://example.com`). Harness will actively bypass loading the local server endpoint entirely out of the execution layer and pivot all local clients to swarm the remote address. |
+| `--connections_count=` | Integer | Optional | The total number of TCP sessions to spawn natively across the whole test. Defaults to 1000. |
+| `--https` | Flag | Optional | Configures TLS/SSL context. Forces internal targets to boot securely on `8443` and configures client payloads with `VERIFY_NONE`. |
+| `--url=` | String | Optional | Triggers **External Target Mode** (e.g. `--url=https://site1.com,https://site2.com`). Harness bypasses local `server.rb` boot sequences completely to swarm remote targets via natively load-balanced round-robin. |
+| `--verbose` | Flag | Optional | Enables extensive verbose logging dynamically mapping TCP `Connection established` and closures strictly into the Thread-safe `client.log` mutex. |
+| `--[no-]ping` | Flag | Optional | Toggles Keep-Alive dynamic heartbeat pings off or on (default `true`). Sends an explicit `HEAD` request within the Keep-Alive tunnel routinely. |
+| `--ping_period=` | Integer | Optional | Time in seconds strictly bounding how often Keep-Alive fiber pings aggressively repeat. Defaults to `5`. |
+| `--keep_alive_timeout=` | Float | Optional | The strict mathematical upper-bound limit enforcing autonomous Client disconnects cleanly. Defaults to `0` (mathematically infinite). |
+| `--bind_ips=` | String | Optional | Comma separated loopback or generic networking interfaces to sequentially map outgoing sockets against. (E.g. `127.0.0.1,127.0.0.2`). |
+| `--proxy_pool=` | String | Optional | Comma separated proxy URIs (e.g. `http://proxy1:8080,http://user:pass@proxy2:8080`) to multiplex connections through. |
+| `--headers=` | String | Optional | Comma separated `Key:Value` mapping of custom authorization or edge cache-bust headers injected strictly bypassing CDNs. |
+| `--slowloris_delay=` | Float | Optional | Hijacks conventional HTTP handshakes writing raw single byte strings maliciously across mathematical delays designed natively to systematically lock thread-dependent Reverse Proxies cleanly. |
+| `--export_json=` | String | Optional | Dumps the execution telemetry including `peak_connections` and mathematically evaluated OS FDs bottlenecks directly into a formatted JSON sink natively. |
+| `--target_duration=` | Float | Optional | Enforces a hard runtime cap structurally across the `keep-alive` processes. The Harness mathematically halts explicitly once SECONDS is bypassed natively. |
+| `--qps_per_connection=` | Integer | Optional | Upgrades pipelines to launch active rhythmic `GET` payloads natively per connected socket at RATE (Requires `--[no]-ping` bypassed). |
+| `--connections_per_second=` | Integer | Optional | Native Fiber load rate-limiter dictating explicit TCP handshake delays natively avoiding `ddos`-style port clogs too early natively. Defaults to `0` (unlimited burst). |
+| `--ramp_up=` | Float | Optional | Systematically scales the initial spawning rate uniformly over Seconds to evade trigger-based target scaling architectures like simple ASGs. Overrides static rates. |
+| `--max_concurrent_connections=`| Integer | Optional | Configures strict `Async::Semaphore` caps mapping active concurrent sockets exactly natively. Defaults exactly to `--connections_count`. |
+| `--reopen_closed_connections` | Flag | Optional | Maps organic resilience loops. TCP endpoints forcefully disrupted dynamically resurrect automatically via standard retry heuristics. |
+| `--reopen_interval=` | Float | Optional | Forces absolute temporal `sleep()` gaps before restoring dropped target loops avoiding internal spin-lock CPU floods. Defaults to `1.0`. |
+| `--read_timeout=` | Float | Optional | Directly hooks into native `Net::HTTP` parameters forcing standard request drop mechanics organically mapping. Defaults to `0` (unlimited). |
+| `--user_agent=` | String | Optional | Overrides all HTTP payload identities statically natively evading specific rigid Bot detection infrastructures. Defaults to `Keep-Alive Test`. |
+| `--jitter=` | Float | Optional | Adds a mathematical `±%` randomization (e.g., `0.2` for 20%) to all sleep intervals organically evading Thundering Herd bottlenecks. Defaults to `0.0`. |
+| `--track_status_codes` | Flag | Optional | Synchronously intercepts Keeping-Alive Pings HTTP integer responses, safely logging HTTP `429` and `5xx` load balancer drops sequentially natively. |
 
 ---
 

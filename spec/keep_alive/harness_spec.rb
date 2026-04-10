@@ -44,7 +44,8 @@ RSpec.describe KeepAlive::Harness do
     end
 
     it 'returns exact mocked percentages when PS command succeeds', rspec: true do
-      allow(Open3).to receive(:capture2).with('ps -o %cpu,rss -p 123').and_return(["%CPU   RSS\n  5.5 10240\n", nil])
+      allow(File).to receive(:read).with('/proc/123/stat').and_raise(Errno::ENOENT)
+      allow(Open3).to receive(:capture2).with('ps', '-o', '%cpu,rss', '-p', '123').and_return(["%CPU   RSS\n  5.5 10240\n", nil])
 
       cpu, mem_str, kb = harness.send(:process_stats, 123)
       expect(cpu).to eq('5.5')
@@ -76,15 +77,39 @@ RSpec.describe KeepAlive::Harness do
       allow(Process).to receive(:getpgid).with(5678).and_raise(Errno::ESRCH)
       expect { harness.send(:monitor_resources) }.to output(/Client process has terminated/).to_stdout
     end
-    
+
     it 'gracefully logs when server process has terminated', rspec: true do
       allow(harness).to receive(:loop).and_yield
       harness.instance_variable_set(:@client_pid, 5678)
       harness.instance_variable_set(:@server_pid, 1234)
       allow(Process).to receive(:getpgid).with(5678).and_return(true)
       allow(Process).to receive(:getpgid).with(1234).and_raise(Errno::ESRCH)
-      
+
       expect { harness.send(:monitor_resources) }.to output(/Server process has terminated/).to_stdout
+    end
+
+    describe '#export_telemetry' do
+      let(:harness_with_export) { described_class.new(connections: 2, export_json: 'test_telemetry.json') }
+
+      it 'exports telemetry to json file when explicitly set', rspec: true do
+        allow(File).to receive(:read).with('client.log').and_return('ERROR_EMFILE ERROR_THREADLIMIT')
+        allow(File).to receive(:read).with('client.err').and_return('ERROR_EADDRNOTAVAIL')
+        harness_with_export.instance_variable_set(:@peak_connections, 100)
+
+        expect(File).to receive(:write).with('test_telemetry.json', instance_of(String)) do |_, json_string|
+          data = JSON.parse(json_string)
+          expect(data['peak_connections']).to eq(100)
+          expect(data['errors']['emfile']).to eq(1)
+          expect(data['errors']['eaddrnotavail']).to eq(1)
+          expect(data['errors']['thread_limit']).to eq(1)
+        end
+        expect { harness_with_export.send(:export_telemetry) }.to output(/Telemetry JSON securely sinked/).to_stdout
+      end
+
+      it 'ignores telemetry export if not explicitly set', rspec: true do
+        expect(File).not_to receive(:write)
+        expect { harness.send(:export_telemetry) }.not_to output(/Telemetry JSON securely sinked/).to_stdout
+      end
     end
   end
 end
