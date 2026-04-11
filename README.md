@@ -39,7 +39,7 @@ The client bypasses expensive `Thread.new` wrappers and deploys raw `Async` fibe
 You engage all functions purely through the root `harness.rb` wrapper.
 
 **Syntax:**
-`ruby harness.rb [--connections_count=NUM] [FLAGS...]`
+`bundle exec ruby bin/harness [--connections_count=NUM] [FLAGS...]`
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
@@ -61,10 +61,10 @@ You engage all functions purely through the root `harness.rb` wrapper.
 | `--ramp_up=` | Float | Optional | Systematically scales the initial spawning rate uniformly over Seconds to evade trigger-based target scaling architectures like simple ASGs. Overrides static rates. |
 | `--max_concurrent_connections=`| Integer | Optional | Configures strict `Async::Semaphore` caps mapping active concurrent sockets exactly natively. Defaults exactly to `--connections_count`. |
 | `--reopen_closed_connections` | Flag | Optional | Maps organic resilience loops. TCP endpoints forcefully disrupted dynamically resurrect automatically via standard retry heuristics. |
-| `--reopen_interval=` | Float | Optional | Forces absolute temporal `sleep()` gaps before restoring dropped target loops avoiding internal spin-lock CPU floods. Defaults to `1.0`. |
+| `--reopen_interval=` | Float | Optional | Forces absolute temporal `sleep()` gaps before restoring dropped target loops avoiding internal spin-lock CPU floods. Defaults to `5.0`. |
 | `--read_timeout=` | Float | Optional | Directly hooks into native `Net::HTTP` parameters forcing standard request drop mechanics organically mapping. Defaults to `0` (unlimited). |
 | `--user_agent=` | String | Optional | Overrides all HTTP payload identities statically natively evading specific rigid Bot detection infrastructures. Defaults to `Keep-Alive Test`. |
-| `--jitter=` | Float | Optional | Adds a mathematical `±%` randomization (e.g., `0.2` for 20%) to all sleep intervals organically evading Thundering Herd bottlenecks. Defaults to `0.0`. |
+| `--jitter=` | Float | Optional | Adds a mathematical `±%` randomization (e.g., `0.2` for 20%) to all sleep intervals organically evading Thundering Herd bottlenecks. Defaults to `1.0`. |
 | `--track_status_codes` | Flag | Optional | Synchronously intercepts Keeping-Alive Pings HTTP integer responses, safely logging HTTP `429` and `5xx` load balancer drops sequentially natively. |
 
 ---
@@ -74,21 +74,21 @@ You engage all functions purely through the root `harness.rb` wrapper.
 ### Scenario 1: Standard Plaintext Benchmarking
 Benchmarks connection stability against the local application using plaintext packets. Perfect for finding file-descriptor limitations natively.
 ```bash
-ruby harness.rb --connections_count=150000
+bundle exec ruby bin/harness --connections_count=150000
 ```
 > Boots internal `server.rb` implicitly on HTTP strictly port `8080`.
 
 ### Scenario 2: Encryption Cost Calculation
 Forces both local client/server infrastructure seamlessly into encrypted protocols using self-generated mathematical PKI contexts.
 ```bash
-ruby harness.rb --connections_count=1000 --https
+bundle exec ruby bin/harness --connections_count=1000 --https
 ```
 > Boots internal `server.rb` natively on HTTPS securely executing over port `8443`.
 
 ### Scenario 3: External Endpoint Durability Testing
 Testing a foreign server (e.g., Google Maps) to determine exactly what their Keep-Alive edge restrictions natively drop out at.
 ```bash
-ruby harness.rb --connections_count=5 --url="https://www.google.com/maps"
+bundle exec ruby bin/harness --connections_count=5 --url="https://www.google.com/maps"
 ```
 > Avoids booting `server.rb`. Metric Dashboard displays `"EXTERNAL"` for server metrics, while strictly tracking `Real Conns`. (Metrics show Google enforces a strict ~240-second (4 min) idle keep-alive retention hook before resetting TCP routes!).
 
@@ -102,13 +102,13 @@ require 'fileutils'
 # test_protocols.rb
 
 puts 'Starting HTTP burst...'
-pid1 = spawn('ruby harness.rb --connections_count=10', out: 'http.log', err: 'http.err')
+pid1 = spawn('bundle exec ruby bin/harness --connections_count=10', out: 'http.log', err: 'http.err')
 sleep 5
 Process.kill('INT', pid1)
 Process.wait(pid1)
 
 puts 'Starting HTTPS burst...'
-pid2 = spawn('ruby harness.rb --connections_count=10 --https', out: 'https.log', err: 'https.err')
+pid2 = spawn('bundle exec ruby bin/harness --connections_count=10 --https', out: 'https.log', err: 'https.err')
 sleep 5
 Process.kill('INT', pid2)
 Process.wait(pid2)
@@ -121,7 +121,7 @@ require 'fileutils'
 # test_endurance.rb
 
 start_time = Time.now
-pid = spawn("ruby harness.rb --connections_count=5 --url='https://example.com'", out: 'monitor.log', err: 'monitor.err')
+pid = spawn("bundle exec ruby bin/harness --connections_count=5 --url='https://example.com'", out: 'monitor.log', err: 'monitor.err')
 sleep 10 # Wait for native initialization
 
 loop do
@@ -143,6 +143,19 @@ Process.kill('INT', pid)
 
 ---
 
+## 📊 Telemetry Metrics Explained
+
+The `harness.rb` dashboard prints active, real-time measurements describing exactly how the client is scaling.
+
+* **Time (UTC)**: Current absolute time in the UTC format for strict log matching.
+* **Real Conns (Real Connections)**: This column strictly calculates the physical number of dynamically established network sockets originating from the active `client` loop.
+  - **Linux Fast-Path**: Bypasses external tools entirely, natively parsing symlinks directly in `/proc/<PID>/fd/` and counting exclusively the descriptors returning exactly `socket:[*]`.
+  - **macOS Fallback**: Since macOS lacks `/proc` socket references natively, it polls via `lsof -p <CLIENT_PID> -n -P` and mathematically counts the exact occurrences indicating the `ESTABLISHED` flag organically.
+* **Srv/Cli CPU/Thrds**: Thread counts and combined relative CPU% measured across all threads dynamically allocated to each discrete process natively.
+* **Srv/Cli Mem/Conn**: Provides immediate memory budgeting statistics organically derived by dividing total physical memory (RSS) by `Real Conns`.
+
+---
+
 ## Hardware Limitations & Known Insights
 
 This suite effortlessly scales through software. When you finally hit a plateau, the limitation exists natively within the Operating System.
@@ -151,18 +164,21 @@ This suite effortlessly scales through software. When you finally hit a plateau,
 
 **1. Ephemeral Port Starvation (`EADDRNOTAVAIL`)**
 * **The Error:** `=> BOTTLENECK ACTIVE: [OS Ports Limit: 924 EADDRNOTAVAIL]`
-* **The Insight:** A single networking loopback interface mapping `127.0.0.1` -> `127.0.0.1:8080` has a mathematically finite amount of dynamic connection identifiers. Standard macOS endpoints run out of ephemeral sockets at strictly ~`32,768` active connections. The codebase will flawlessly survive this starvation remaining at `0.0% CPU`, aggressively logging it cleanly without crashing.
+* **The Insight:** A single networking loopback interface mapping `127.0.0.1` -> `127.0.0.1:8080` has a mathematically finite amount of dynamic connection identifiers. Standard macOS endpoints run out of ephemeral sockets at strictly ~`32,768` (or ~`16,384`) active connections depending on the kernel version.
+* **The Reconnection Death-Spiral:** If your target Server hits its internal File Descriptor limits (for instance, dropping connections at exactly 5,000 sockets), and you run the test with `--reopen_closed_connections`, the Client will aggressively retry. This cycle will exhaust all 16k available ephemeral loopback ports within seconds by dumping them into `TIME_WAIT` lock, throwing `EADDRNOTAVAIL` artificially early.
 * **The Solution:** To achieve 150k endpoints effectively sourced from a singular physical piece of hardware, you must dynamically generate multiple loopback addresses to expand your subnet ports implicitly:
 ```bash
 sudo ifconfig lo0 alias 127.0.0.2 up
 sudo ifconfig lo0 alias 127.0.0.3 up
 ```
 
-**2. File Descriptor Limits (`EMFILE`)**
-* **The Error:** `=> BOTTLENECK ACTIVE: [OS FDs Limit: 40 EMFILE]`
-* **The Insight:** Operating systems heavily restrict total open file capabilities (sockets count as files natively).
-* **The Solution:** The harness tries to execute `Process.setrlimit` dynamically to add buffers. If blocked securely by native OS permissions, execute root privileges proactively:
+**2. File Descriptor Limits (`EMFILE` & Server Rejections)**
+* **The Error:** `=> BOTTLENECK ACTIVE: [OS FDs Limit: 40 EMFILE]` (Or silently dropped connections hovering exactly at `~5,000` to `~10,000`)
+* **The Insight:** Operating systems heavily restrict total open file capabilities (sockets count as files natively). Standard macOS limits hardcap user file descriptors roughly near 5,000 or 10,000 (`kern.maxfilesperproc`). Once the Server hits this limit, it proactively rejects incoming sockets, which forces drops.
+* **The Solution:** The harness tries to execute `Process.setrlimit` dynamically to add buffers. If blocked securely by native OS permissions or deep kernel limits, execute these configurations natively before the benchmark:
 ```bash
+sudo sysctl -w kern.maxfiles=1000000
+sudo sysctl -w kern.maxfilesperproc=1000000
 ulimit -n 250000
 ```
 

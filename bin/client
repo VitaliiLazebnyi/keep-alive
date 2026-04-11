@@ -19,7 +19,7 @@ options = {
   connections_per_second: 0,
   max_concurrent_connections: nil,
   reopen_closed_connections: false,
-  reopen_interval: 1.0,
+  reopen_interval: 5.0,
   read_timeout: 0.0,
   user_agent: 'Keep-Alive Test',
   ramp_up: 0.0,
@@ -99,11 +99,14 @@ OptionParser.new do |opts|
   opts.on('--slowloris_delay=SECONDS', Float, 'Mathematical gap between byte payloads holding threads open') do |v|
     options[:slowloris_delay] = v
   end
+  # Ignore harness-specific options passed via ARGV
+  opts.on('--export_json=FILE', String) { nil }
+  opts.on('--target_duration=SECONDS', Float) { nil }
 end.parse!(ARGV)
 
 options[:max_concurrent_connections] ||= options[:connections]
 options[:target_urls] ||= []
-options[:jitter] ||= 0.0
+options[:jitter] ||= 1.0
 options[:track_status_codes] ||= false
 
 begin

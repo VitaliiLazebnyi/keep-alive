@@ -44,8 +44,8 @@ module KeepAlive
       verbose: false, ping: true, ping_period: 5,
       keep_alive_timeout: 0.0, connections_per_second: 0,
       max_concurrent_connections: 1000, reopen_closed_connections: false,
-      reopen_interval: 1.0, read_timeout: 0.0, user_agent: 'Keep-Alive Test',
-      jitter: 0.0, track_status_codes: false,
+      reopen_interval: 5.0, read_timeout: 0.0, user_agent: 'Keep-Alive Test',
+      jitter: 1.0, track_status_codes: false,
       ramp_up: 0.0, bind_ips: [], proxy_pool: [],
       qps_per_connection: 0, headers: {},
       slowloris_delay: 0.0
@@ -205,10 +205,8 @@ module KeepAlive
 
     sig { params(client_index: Integer).void }
     def execute_connection(client_index)
-      start_time = Time.now
-
       loop do
-        run_http_session(client_index, start_time)
+        run_http_session(client_index, Time.now)
         break unless @reopen_closed_connections
 
         # If we broke out and need to reopen, we sleep first

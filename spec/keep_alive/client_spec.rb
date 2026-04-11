@@ -62,7 +62,7 @@ RSpec.describe KeepAlive::Client do
   end
 
   describe '#start' do
-    let(:client_rate) { described_class.new(connections: 2, connections_per_second: 10, max_concurrent_connections: 1, verbose: true) }
+    let(:client_rate) { described_class.new(connections: 2, connections_per_second: 10, max_concurrent_connections: 1, verbose: true, jitter: 0.0) }
 
     context 'when ratelimiting connections' do
       before do
@@ -97,7 +97,7 @@ RSpec.describe KeepAlive::Client do
     end
 
     context 'when providing ramp_up delay' do
-      let(:client_ramp) { described_class.new(connections: 4, ramp_up: 10.0, max_concurrent_connections: 4, verbose: true) }
+      let(:client_ramp) { described_class.new(connections: 4, ramp_up: 10.0, max_concurrent_connections: 4, verbose: true, jitter: 0.0) }
 
       before do
         allow(client_ramp).to receive(:execute_connection)
@@ -118,6 +118,18 @@ RSpec.describe KeepAlive::Client do
         expect(client_ramp).to have_received(:execute_connection).exactly(4).times
       end
       # rubocop:enable RSpec/AnyInstance
+    end
+
+    context 'when no ramp_up or rate limits configured' do
+      let(:client_zero) { described_class.new(connections: 1, ramp_up: 0.0, connections_per_second: 0) }
+
+      it 'calculates 0.0 delay directly', :rspec do
+        allow(client_zero).to receive(:execute_connection)
+        allow(client_zero).to receive(:trap).with('INT')
+        allow(client_zero).to receive(:calculate_sleep).and_call_original
+        expect_any_instance_of(Async::Task).not_to receive(:sleep)
+        client_zero.start
+      end
     end
   end
 
@@ -145,8 +157,30 @@ RSpec.describe KeepAlive::Client do
       end
     end
 
+    context 'when Addrinfo resolution explicitly fails' do
+      let(:client_dns) { described_class.new(connections: 1, target_urls: ['http://broken.local']) }
+
+      it 'rescues SocketError gracefully keeping args cleanly mapped', :rspec do
+        allow(Addrinfo).to receive(:getaddrinfo).and_raise(SocketError)
+        contexts = client_dns.send(:build_target_contexts)
+        expect(contexts.first[:http_args][:ipaddr]).to be_nil
+      end
+    end
+
+    context 'when determining protocol label' do
+      it 'maps HTTPS properly', :rspec do
+        client_https = described_class.new(connections: 1, target_urls: [], use_https: true)
+        expect(client_https.send(:determine_protocol_label)).to eq('HTTPS')
+      end
+
+      it 'maps EXTERNAL single target correctly', :rspec do
+        client_ext = described_class.new(connections: 1, target_urls: ['https://remote.com'])
+        expect(client_ext.send(:determine_protocol_label)).to eq('EXTERNAL HTTPS')
+      end
+    end
+
     context 'when reopening connections' do
-      let(:client) { described_class.new(connections: 1, reopen_closed_connections: true, reopen_interval: 0.1) }
+      let(:client) { described_class.new(connections: 1, reopen_closed_connections: true, reopen_interval: 0.1, jitter: 0.0) }
 
       before do
         has_run = false
@@ -261,7 +295,7 @@ RSpec.describe KeepAlive::Client do
     end
 
     context 'when qps_per_connection active' do
-      let(:client) { described_class.new(connections: 1, ping: false, keep_alive_timeout: 0.0, qps_per_connection: 10) }
+      let(:client) { described_class.new(connections: 1, ping: false, keep_alive_timeout: 0.0, qps_per_connection: 10, jitter: 0.0) }
 
       before do
         mock_http = instance_double(Net::HTTP)
@@ -280,10 +314,31 @@ RSpec.describe KeepAlive::Client do
       end
     end
 
+    context 'when qps_per_connection receives server error' do
+      let(:client) { described_class.new(connections: 1, ping: false, keep_alive_timeout: 0.0, track_status_codes: true, qps_per_connection: 10, jitter: 0.0) }
+
+      before do
+        mock_http = instance_double(Net::HTTP)
+        mock_response = instance_double(Net::HTTPBadGateway, is_a?: false, read_body: nil, code: '502')
+        allow(Net::HTTP).to receive(:start).and_yield(mock_http)
+        allow(mock_http).to receive(:request) do |_req, &block|
+          block&.call(mock_response)
+          mock_response
+        end
+        allow(client).to receive(:sleep)
+        allow(client).to receive(:log_info)
+        client.send(:run_http_session, 0, Time.now)
+      end
+
+      it 'logs HTTP 502 dynamically for drops', :rspec do
+        expect(client).to have_received(:log_info).with(/Upstream returned HTTP 502/)
+      end
+    end
+
     context 'when using slowloris_delay' do
-      let(:client) { described_class.new(connections: 1, ping: false, slowloris_delay: 1.0, keep_alive_timeout: 0.0) }
+      let(:client) { described_class.new(connections: 1, ping: false, slowloris_delay: 1.0, keep_alive_timeout: 0.0, jitter: 0.0) }
       let(:mock_io) { instance_double(IO, write: 1, flush: nil) }
-      let(:mock_socket_wrapper) { instance_double(Object, io: mock_io) }
+      let(:mock_socket_wrapper) { double('SocketWrapper', io: mock_io) }
 
       before do
         mock_http = instance_double(Net::HTTP)
@@ -303,8 +358,34 @@ RSpec.describe KeepAlive::Client do
       end
     end
 
+    context 'when slowloris loop hits timeout limit' do
+      let(:client) { described_class.new(connections: 1, ping: false, slowloris_delay: 1.0, keep_alive_timeout: 0.1, jitter: 0.0) }
+      let(:mock_io) { instance_double(IO, write: 1, flush: nil) }
+      let(:mock_socket_wrapper) { double('SocketWrapper', io: mock_io) }
+
+      before do
+        mock_http = instance_double(Net::HTTP)
+        allow(Net::HTTP).to receive(:start).and_yield(mock_http)
+        allow(mock_http).to receive(:instance_variable_get).with(:@socket).and_return(mock_socket_wrapper)
+        allow(client).to receive(:sleep)
+        allow(client).to receive(:log_info)
+
+        time = Time.now
+        allow(Time).to receive(:now).and_return(time)
+        # Yield start manually to fake the timeline loop iteration securely
+      end
+
+      it 'logs gracefully and breaks the eternal loop', :rspec do
+        # Enforce exact simulated elapsed time
+        time = Time.now
+        allow(Time).to receive(:now).and_return(time, time, time, time + 0.2)
+        client.send(:run_http_session, 0, time)
+        expect(client).to have_received(:log_info).with(/Keep-alive timeout reached, closing Slowloris thread/)
+      end
+    end
+
     context 'when pinging actively' do
-      let(:client) { described_class.new(connections: 1, ping: true, ping_period: 1, keep_alive_timeout: 0.0) }
+      let(:client) { described_class.new(connections: 1, ping: true, ping_period: 1, keep_alive_timeout: 0.0, jitter: 0.0) }
 
       before do
         mock_http = instance_double(Net::HTTP)
@@ -390,13 +471,30 @@ RSpec.describe KeepAlive::Client do
     it 'logs info into queue when verbose configured' do
       verbose_client.instance_variable_get(:@logger_thread).kill
       verbose_client.send(:log_info, 'test_message')
-      expect(verbose_client.instance_variable_get(:@log_queue).pop).to match(/test_message/)
+      expect(verbose_client.instance_variable_get(:@log_queue).pop[1]).to match(/test_message/)
     end
 
     it 'skips pushing to queue when not verbose' do
       quiet_client.instance_variable_get(:@logger_thread).kill
       quiet_client.send(:log_info, 'test_message')
       expect(quiet_client.instance_variable_get(:@log_queue).size).to eq(0)
+    end
+
+    it 'flushes info and error logs securely to file', :rspec do
+      log_file_stub = instance_double(File, puts: nil, flush: nil)
+      err_file_stub = instance_double(File, puts: nil, flush: nil)
+      allow(File).to receive(:open).with(/\/client\.log/, 'a').and_yield(log_file_stub)
+      allow(File).to receive(:open).with(/\/client\.err/, 'a').and_yield(err_file_stub)
+      
+      verbose_client.instance_variable_get(:@log_queue) << [:info, 'test_info']
+      verbose_client.instance_variable_get(:@log_queue) << [:error, 'test_error']
+      verbose_client.instance_variable_get(:@log_queue) << :terminate
+      verbose_client.instance_variable_get(:@logger_thread).join
+
+      expect(log_file_stub).to have_received(:puts).with('test_info')
+      expect(log_file_stub).to have_received(:flush)
+      expect(err_file_stub).to have_received(:puts).with('test_error')
+      expect(err_file_stub).to have_received(:flush)
     end
   end
 end

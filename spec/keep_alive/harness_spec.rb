@@ -42,6 +42,37 @@ RSpec.describe KeepAlive::Harness do
       end
     end
 
+    context 'with alternate target arguments' do
+      it 'logs MULTIPLE TARGETS cleanly' do
+        h_multi = described_class.new(connections: 1, target_urls: ['http://t1', 'http://t2'])
+        allow(h_multi).to receive(:spawn_processes)
+        allow(h_multi).to receive(:monitor_resources)
+        expect { h_multi.start }.to output(/MULTIPLE TARGETS/).to_stdout
+      end
+
+      it 'logs EXTERNAL URL cleanly' do
+        h_ext = described_class.new(connections: 1, target_urls: ['http://t1'])
+        allow(h_ext).to receive(:spawn_processes)
+        allow(h_ext).to receive(:monitor_resources)
+        expect { h_ext.start }.to output(/EXTERNAL URL/).to_stdout
+      end
+
+      it 'logs HTTPS cleanly' do
+        h_sec = described_class.new(connections: 1, use_https: true)
+        allow(h_sec).to receive(:spawn_processes)
+        allow(h_sec).to receive(:monitor_resources)
+        expect { h_sec.start }.to output(/HTTPS/).to_stdout
+      end
+    end
+
+    it 'traps INT signal effectively securely' do
+      allow(harness).to receive(:spawn_processes)
+      allow(harness).to receive(:monitor_resources)
+      allow(harness).to receive(:trap).with('INT').and_yield
+      allow(harness).to receive(:exit)
+      expect { harness.start }.to output(/Caught interrupt/).to_stdout
+    end
+
     it 'gracefully logs if setting file limits permission denied', :rspec do
       allow(Process).to receive(:setrlimit).and_raise(Errno::EPERM)
 
@@ -55,13 +86,49 @@ RSpec.describe KeepAlive::Harness do
 
   describe 'resource helpers' do
     it 'returns EXTERNAL values when pid is nil', :rspec do
-      expect(harness.send(:process_stats, nil)).to eq(['EXTERNAL', 'EXTERNAL', 0.0])
+      expect(harness.send(:process_stats, nil)).to eq(['EXTERNAL', 'EXTERNAL', 0.0, 0])
+    end
+
+    context 'when on Linux with native /proc stats' do
+      let(:proc_stat) { "123 (ruby) S 1 1 1 0 -1 0 0 0 0 0 100 200 0 0 20 0 1 0 12345 12345 10240 1 1 1\n" }
+      
+      it 'calculates stats successfully bypassing fallback', :rspec do
+        allow(File).to receive(:read).with('/proc/123/stat').and_return(proc_stat)
+        allow(File).to receive(:read).with('/proc/123/statm').and_return("10240 2560 1 1 1 1 1\n")
+        allow(File).to receive(:read).with('/proc/123/status').and_return("Threads:\t4\n")
+        
+        allow(File).to receive(:exist?).with('/usr/bin/getconf').and_return(true)
+        allow(Open3).to receive(:capture2).with('getconf PAGE_SIZE').and_return(['4096', nil])
+
+        stats = harness.send(:process_stats, 123)
+        expect(stats[3]).to eq(4)
+        
+        # Second pass to cover CPU diff block successfully
+        time = Time.now
+        allow(Time).to receive(:now).and_return(time)
+        harness.send(:process_stats, 123)
+
+        allow(Time).to receive(:now).and_return(time + 1.0)
+        allow(File).to receive(:read).with('/proc/123/stat').and_return("123 (ruby) S 1 1 1 0 -1 0 0 0 0 0 150 250 0 0 20 0 1 0 12345 12345 10240 1 1 1\n")
+        stats_diff = harness.send(:process_stats, 123)
+        expect(stats_diff[0]).not_to be_empty
+      end
+
+      it 'handles getconf crashes gracefully', :rspec do
+        allow(File).to receive(:read).with('/proc/123/stat').and_return(proc_stat)
+        allow(File).to receive(:read).with('/proc/123/statm').and_return("10240 2560 1 1 1 1 1\n")
+        allow(File).to receive(:read).with('/proc/123/status').and_return("Threads:\t4\n")
+        allow(File).to receive(:exist?).with('/usr/bin/getconf').and_return(true)
+        allow(Open3).to receive(:capture2).with('getconf PAGE_SIZE').and_raise(StandardError)
+        expect { harness.send(:process_stats, 123) }.not_to raise_error
+      end
     end
 
     context 'when PS command succeeds' do
       let(:stats) do
         allow(File).to receive(:read).with('/proc/123/stat').and_raise(Errno::ENOENT)
         allow(Open3).to receive(:capture2).with('ps', '-o', '%cpu,rss', '-p', '123').and_return(["%CPU   RSS\n  5.5 10240\n", nil])
+        allow(Open3).to receive(:capture2).with('ps -M -p 123').and_return(["PID  TT  STAT      TIME COMMAND\n123  ??  S      0:00.01 ruby\n123  ??  S      0:00.01 ruby\n", nil])
         harness.send(:process_stats, 123)
       end
 
@@ -80,7 +147,7 @@ RSpec.describe KeepAlive::Harness do
 
     it 'returns N/A if PS fails', :rspec do
       allow(Open3).to receive(:capture2).and_raise(StandardError)
-      expect(harness.send(:process_stats, 123)).to eq(['N/A', 'N/A', 0.0])
+      expect(harness.send(:process_stats, 123)).to eq(['N/A', 'N/A', 0.0, 0])
     end
 
     it 'counts logically established connections via lsof', :rspec do

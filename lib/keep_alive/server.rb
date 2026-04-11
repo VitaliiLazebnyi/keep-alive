@@ -25,8 +25,7 @@ module KeepAlive
             200,
             {
               'Content-Type' => 'text/plain',
-              'Content-Length' => '2',
-              'Connection' => 'keep-alive'
+              'Content-Length' => '2'
             },
             ['OK']
           ]
