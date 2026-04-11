@@ -40,22 +40,22 @@ module KeepAlive
       if use_https
         puts "[Server] Binding natively to HTTPS over port #{port}"
         ssl_context = generate_ssl_context
-        
+
         T.unsafe(self).Sync do |task|
           endpoint = T.unsafe(IO::Endpoint).tcp('0.0.0.0', port)
           secure_endpoint = T.unsafe(IO::Endpoint::SSLEndpoint).new(endpoint, ssl_context: ssl_context)
-          
+
           adapter = T.unsafe(::Protocol::Rack::Adapter).new(@app)
           server = T.unsafe(::Falcon::Server).new(adapter, secure_endpoint, protocol: T.unsafe(Async::HTTP::Protocol::HTTP1), scheme: 'https')
-          
+
           server_task = server.run
-          
+
           trap('INT') do
             puts "\n[Server] Shutting down immediately..."
             task.stop
             exit(0)
           end
-          
+
           server_task.wait
         end
       else

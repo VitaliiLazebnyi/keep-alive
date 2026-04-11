@@ -16,25 +16,33 @@ RSpec.describe KeepAlive::Harness do
   end
 
   describe '#initialize' do
-    it 'raises ArgumentError on invalid parameters' do
+    it 'raises ArgumentError on invalid connections' do
       expect { described_class.new(connections: 0) }.to raise_error(ArgumentError, /connections must be >= 1/)
+    end
+
+    it 'raises ArgumentError on invalid target duration' do
       expect { described_class.new(connections: 1, target_duration: -1.0) }.to raise_error(ArgumentError, /target_duration must be >= 0.0/)
     end
   end
 
   describe '#start' do
-    it 'sets file limits, spawns processes and handles interrupts', rspec: true do
-      expect(Process).to receive(:setrlimit).with(Process::RLIMIT_NOFILE, 1026)
-      expect(Process).to receive(:spawn).twice
+    context 'with typical parameters' do
+      before do
+        allow(harness).to receive(:loop).and_yield
+        allow(harness).to receive(:sleep)
+        harness.start
+      end
 
-      # Stop the infinite monitoring loop dynamically
-      allow(harness).to receive(:loop).and_yield
-      allow(harness).to receive(:sleep)
+      it 'sets file limits correctly', :rspec do
+        expect(Process).to have_received(:setrlimit).with(Process::RLIMIT_NOFILE, 1026)
+      end
 
-      harness.start
+      it 'spawns processes successfully twice', :rspec do
+        expect(Process).to have_received(:spawn).twice
+      end
     end
 
-    it 'gracefully logs if setting file limits permission denied', rspec: true do
+    it 'gracefully logs if setting file limits permission denied', :rspec do
       allow(Process).to receive(:setrlimit).and_raise(Errno::EPERM)
 
       # Avoid start from going into monitoring
@@ -46,98 +54,146 @@ RSpec.describe KeepAlive::Harness do
   end
 
   describe 'resource helpers' do
-    it 'returns EXTERNAL values when pid is nil', rspec: true do
+    it 'returns EXTERNAL values when pid is nil', :rspec do
       expect(harness.send(:process_stats, nil)).to eq(['EXTERNAL', 'EXTERNAL', 0.0])
     end
 
-    it 'returns exact mocked percentages when PS command succeeds', rspec: true do
-      allow(File).to receive(:read).with('/proc/123/stat').and_raise(Errno::ENOENT)
-      allow(Open3).to receive(:capture2).with('ps', '-o', '%cpu,rss', '-p', '123').and_return(["%CPU   RSS\n  5.5 10240\n", nil])
+    context 'when PS command succeeds' do
+      let(:stats) do
+        allow(File).to receive(:read).with('/proc/123/stat').and_raise(Errno::ENOENT)
+        allow(Open3).to receive(:capture2).with('ps', '-o', '%cpu,rss', '-p', '123').and_return(["%CPU   RSS\n  5.5 10240\n", nil])
+        harness.send(:process_stats, 123)
+      end
 
-      cpu, mem_str, kb = harness.send(:process_stats, 123)
-      expect(cpu).to eq('5.5')
-      expect(mem_str).to eq('10.0 MB')
-      expect(kb).to eq(10_240.0)
+      it 'returns exact mocked percentages', :rspec do
+        expect(stats[0]).to eq('5.5')
+      end
+
+      it 'returns correct mocked memory string', :rspec do
+        expect(stats[1]).to eq('10.0 MB')
+      end
+
+      it 'returns correct mapped kilobyte values', :rspec do
+        expect(stats[2]).to eq(10_240.0)
+      end
     end
 
-    it 'returns N/A if PS fails', rspec: true do
+    it 'returns N/A if PS fails', :rspec do
       allow(Open3).to receive(:capture2).and_raise(StandardError)
       expect(harness.send(:process_stats, 123)).to eq(['N/A', 'N/A', 0.0])
     end
 
-    it 'counts logically established connections via lsof', rspec: true do
+    it 'counts logically established connections via lsof', :rspec do
       mock_lsof = "COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\nruby 123 u 4u IPv4 0t0 TCP *:8080 (ESTABLISHED)\n"
       allow(Open3).to receive(:capture2).with('lsof -p 123 -n -P').and_return([mock_lsof, nil])
 
       expect(harness.send(:count_established_connections, 123)).to eq(1)
     end
 
-    it 'handles check_bottlenecks string parsing elegantly', rspec: true do
+    it 'handles check_bottlenecks string parsing elegantly', :rspec do
       log_dir = File.expand_path('../../logs', __dir__)
       allow(File).to receive(:read).with(File.join(log_dir, 'client.log')).and_return('ERROR_EMFILE ERROR_THREADLIMIT')
       allow(File).to receive(:read).with(File.join(log_dir, 'client.err')).and_return('ERROR_EADDRNOTAVAIL')
       allow($stdout).to receive(:puts)
       expect { harness.send(:check_bottlenecks) }.not_to raise_error
     end
-    it 'gracefully logs when client process has terminated', rspec: true do
+
+    it 'gracefully logs when client process has terminated', :rspec do
       allow(harness).to receive(:loop).and_yield
       harness.instance_variable_set(:@client_pid, 5678)
       allow(Process).to receive(:getpgid).with(5678).and_raise(Errno::ESRCH)
       expect { harness.send(:monitor_resources) }.to output(/Client process has terminated/).to_stdout
     end
 
-    it 'gracefully logs when server process has terminated', rspec: true do
-      allow(harness).to receive(:loop).and_yield
-      harness.instance_variable_set(:@client_pid, 5678)
-      harness.instance_variable_set(:@server_pid, 1234)
-      allow(Process).to receive(:getpgid).with(5678).and_return(true)
-      allow(Process).to receive(:getpgid).with(1234).and_raise(Errno::ESRCH)
+    context 'when server process has terminated' do
+      before do
+        allow(harness).to receive(:loop).and_yield
+        harness.instance_variable_set(:@client_pid, 5678)
+        harness.instance_variable_set(:@server_pid, 1234)
+        allow(Process).to receive(:getpgid).with(5678).and_return(true)
+        allow(Process).to receive(:getpgid).with(1234).and_raise(Errno::ESRCH)
+      end
 
-      expect { harness.send(:monitor_resources) }.to output(/Server process has terminated/).to_stdout
+      it 'gracefully logs output', :rspec do
+        expect { harness.send(:monitor_resources) }.to output(/Server process has terminated/).to_stdout
+      end
     end
+  end
 
-    describe '#export_telemetry' do
-      let(:harness_with_export) { described_class.new(connections: 2, export_json: 'test_telemetry.json') }
+  describe '#export_telemetry' do
+    context 'when JSON explicitly set' do
+      let(:harness_export) { described_class.new(connections: 2, export_json: 'test_telemetry.json') }
+      let(:exported_json) do
+        json_output = nil
+        allow(File).to receive(:write).with('test_telemetry.json', instance_of(String)) { |_, string| json_output = string }
+        allow($stdout).to receive(:puts)
+        harness_export.send(:export_telemetry)
+        JSON.parse(json_output.to_s)
+      end
 
-      it 'exports telemetry to json file when explicitly set', rspec: true do
+      before do
         log_dir = File.expand_path('../../logs', __dir__)
         allow(File).to receive(:read).with(File.join(log_dir, 'client.log')).and_return('ERROR_EMFILE ERROR_THREADLIMIT')
         allow(File).to receive(:read).with(File.join(log_dir, 'client.err')).and_return('ERROR_EADDRNOTAVAIL')
-        harness_with_export.instance_variable_set(:@peak_connections, 100)
-
-        expect(File).to receive(:write).with('test_telemetry.json', instance_of(String)) do |_, json_string|
-          data = JSON.parse(json_string)
-          expect(data['peak_connections']).to eq(100)
-          expect(data['errors']['emfile']).to eq(1)
-          expect(data['errors']['eaddrnotavail']).to eq(1)
-          expect(data['errors']['thread_limit']).to eq(1)
-        end
-        expect { harness_with_export.send(:export_telemetry) }.to output(/Telemetry JSON securely sinked/).to_stdout
+        harness_export.instance_variable_set(:@peak_connections, 100)
       end
 
-      it 'ignores telemetry export if not explicitly set', rspec: true do
-        expect(File).not_to receive(:write)
+      it 'exports peak_connections correctly', :rspec do
+        expect(exported_json['peak_connections']).to eq(100)
+      end
+
+      it 'counts thread_limit correctly', :rspec do
+        expect(exported_json['errors']['thread_limit']).to eq(1)
+      end
+
+      it 'counts emfile correctly', :rspec do
+        expect(exported_json['errors']['emfile']).to eq(1)
+      end
+
+      it 'counts eaddrnotavail correctly', :rspec do
+        expect(exported_json['errors']['eaddrnotavail']).to eq(1)
+      end
+
+      it 'logs the syncing specifically', :rspec do
+        allow(File).to receive(:write)
+        expect { harness_export.send(:export_telemetry) }.to output(/Telemetry JSON securely sinked/).to_stdout
+      end
+    end
+
+    context 'when telemetry export is not explicitly set' do
+      before do
+        allow(File).to receive(:write)
+      end
+
+      it 'does not ignore exports silently', :rspec do
+        allow($stdout).to receive(:puts)
+        harness.send(:export_telemetry)
+        expect(File).not_to have_received(:write)
+      end
+
+      it 'does not show logs for sinking', :rspec do
         expect { harness.send(:export_telemetry) }.not_to output(/Telemetry JSON securely sinked/).to_stdout
       end
     end
   end
-end
 
-  describe 'coverage booster FINAL FOR HARNESS' do
-    it 'harness lines missing: sleep and retry on ECONNREFUSED' do
-      h = KeepAlive::Harness.new(connections: 1)
+  describe '#spawn_processes boost' do
+    let(:harness_retry) { described_class.new(connections: 1) }
+
+    before do
       allow(Process).to receive(:spawn).and_return(123)
-      allow($stdout).to receive(:puts)
-      error_raised = false
+      allow(harness_retry).to receive(:sleep)
+
+      call_count = 0
       allow(Socket).to receive(:tcp) do
-        if error_raised
-          double('sock', close: true)
-        else
-          error_raised = true
-          raise Errno::ECONNREFUSED
-        end
+        call_count += 1
+        call_count == 1 ? raise(Errno::ECONNREFUSED) : instance_double(TCPSocket, close: true)
       end
-      allow(h).to receive(:sleep)
-      h.send(:spawn_processes)
+    end
+
+    it 'sleeps and retries specifically on ECONNREFUSED', :rspec do
+      harness_retry.send(:spawn_processes)
+      expect(harness_retry).to have_received(:sleep).once
     end
   end
+end

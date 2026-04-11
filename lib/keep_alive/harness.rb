@@ -125,6 +125,7 @@ module KeepAlive
             out, _s = Open3.capture2('getconf PAGE_SIZE')
             page_size = out.to_i if out.to_i.positive?
           rescue StandardError
+            nil
           end
         end
 
@@ -179,7 +180,8 @@ module KeepAlive
 
       if File.directory?("/proc/#{pid}/fd")
         Dir.entries("/proc/#{pid}/fd").count do |fd|
-          next false if fd == '.' || fd == '..'
+          next false if ['.', '..'].include?(fd)
+
           begin
             File.readlink("/proc/#{pid}/fd/#{fd}").start_with?('socket:[')
           rescue StandardError
