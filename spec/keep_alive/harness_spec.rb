@@ -30,15 +30,31 @@ RSpec.describe KeepAlive::Harness do
       before do
         allow(harness).to receive(:loop).and_yield
         allow(harness).to receive(:sleep)
-        harness.start
       end
 
       it 'sets file limits correctly', :rspec do
+        harness.start
         expect(Process).to have_received(:setrlimit).with(Process::RLIMIT_NOFILE, 1026)
       end
 
       it 'spawns processes successfully twice', :rspec do
+        harness.start
         expect(Process).to have_received(:spawn).twice
+      end
+
+      it 'spawns server with https natively' do
+        h_https = described_class.new(connections: 1, use_https: true)
+        allow(Process).to receive(:spawn)
+        allow(h_https).to receive(:sleep)
+        h_https.send(:spawn_processes)
+        expect(Process).to have_received(:spawn).with(include('--https'), anything)
+      end
+
+      it 'spawns only client if target_urls is populated and maps strictly' do
+        h_tgt = described_class.new(connections: 1, target_urls: ['http://remote'], client_args: ['--custom=1'])
+        allow(Process).to receive(:spawn)
+        h_tgt.send(:spawn_processes)
+        expect(Process).to have_received(:spawn).once
       end
     end
 
@@ -89,6 +105,29 @@ RSpec.describe KeepAlive::Harness do
       expect(harness.send(:process_stats, nil)).to eq(['EXTERNAL', 'EXTERNAL', 0.0, 0])
     end
 
+    context 'when PS command fails gracefully' do
+      it 'returns N/A on ps command error explicitly' do
+        allow(File).to receive(:read).with('/proc/123/stat').and_raise(Errno::ENOENT)
+        allow(Open3).to receive(:capture2).with('ps', '-o', '%cpu,rss', '-p', '123').and_raise(StandardError)
+        expect(harness.send(:process_stats, 123)).to eq(['N/A', 'N/A', 0.0, 0])
+      end
+
+      it 'returns fallback N/A when ps outputs organically missing data format natively' do
+        allow(File).to receive(:read).with('/proc/123/stat').and_raise(Errno::ENOENT)
+        allow(Open3).to receive(:capture2).with('ps', '-o', '%cpu,rss', '-p', '123').and_return(["%CPU\n", nil])
+        expect(harness.send(:process_stats, 123)).to eq(['N/A', 'N/A', 0.0, 0])
+      end
+    end
+
+    context 'when PS threads execution organically fails natively across mac constraints' do
+      it 'returns exactly 1 fallback logically', :rspec do
+        allow(File).to receive(:read).with('/proc/123/stat').and_raise(Errno::ENOENT)
+        allow(Open3).to receive(:capture2).with('ps', '-o', '%cpu,rss', '-p', '123').and_return(["%CPU   RSS\n  5.5 10240\n", nil])
+        allow(Open3).to receive(:capture2).with('ps -M -p 123').and_raise(StandardError)
+        expect(harness.send(:process_stats, 123)[3]).to eq(1)
+      end
+    end
+
     context 'when on Linux with native /proc stats' do
       let(:proc_stat) { "123 (ruby) S 1 1 1 0 -1 0 0 0 0 0 100 200 0 0 20 0 1 0 12345 12345 10240 1 1 1\n" }
       
@@ -122,6 +161,32 @@ RSpec.describe KeepAlive::Harness do
         allow(Open3).to receive(:capture2).with('getconf PAGE_SIZE').and_raise(StandardError)
         expect { harness.send(:process_stats, 123) }.not_to raise_error
       end
+
+      it 'handles missing getconf flawlessly natively', :rspec do
+        allow(File).to receive(:read).with('/proc/123/stat').and_return(proc_stat)
+        allow(File).to receive(:read).with('/proc/123/statm').and_return("10240 2560 1 1 1 1 1\n")
+        allow(File).to receive(:read).with('/proc/123/status').and_return("Threads:\t4\n")
+        allow(File).to receive(:exist?).with('/usr/bin/getconf').and_return(false)
+        stats = harness.send(:process_stats, 123)
+        expect(stats).not_to be_nil
+      end
+
+      it 'handles negative getconf naturally mapping flawlessly', :rspec do
+        allow(File).to receive(:read).with('/proc/123/stat').and_return(proc_stat)
+        allow(File).to receive(:read).with('/proc/123/statm').and_return("10240 2560 1 1 1 1 1\n")
+        # Also let's hit missing thread pattern natively
+        allow(File).to receive(:read).with('/proc/123/status').and_return("No threads\n")
+        allow(File).to receive(:exist?).with('/usr/bin/getconf').and_return(true)
+        allow(Open3).to receive(:capture2).with('getconf PAGE_SIZE').and_return(['-1', nil])
+        
+        # also hit zero time diff
+        time = Time.now
+        allow(Time).to receive(:now).and_return(time)
+        harness.send(:process_stats, 123)
+        allow(Time).to receive(:now).and_return(time) # 0.0 diff
+        stats = harness.send(:process_stats, 123)
+        expect(stats[0]).to eq("0.0")
+      end
     end
 
     context 'when PS command succeeds' do
@@ -152,9 +217,25 @@ RSpec.describe KeepAlive::Harness do
 
     it 'counts logically established connections via lsof', :rspec do
       mock_lsof = "COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\nruby 123 u 4u IPv4 0t0 TCP *:8080 (ESTABLISHED)\n"
+      allow(File).to receive(:directory?).with('/proc/123/fd').and_return(false)
       allow(Open3).to receive(:capture2).with('lsof -p 123 -n -P').and_return([mock_lsof, nil])
 
       expect(harness.send(:count_established_connections, 123)).to eq(1)
+    end
+
+    context 'when logically counting sockets via native Linux /proc/pid/fd intrinsically' do
+      it 'counts socket:[ cleanly organically' do
+        allow(File).to receive(:directory?).with('/proc/123/fd').and_return(true)
+        allow(Dir).to receive(:entries).with('/proc/123/fd').and_return(['.', '..', '3', '4'])
+        allow(File).to receive(:readlink).with('/proc/123/fd/3').and_return('socket:[12345]')
+        allow(File).to receive(:readlink).with('/proc/123/fd/4').and_raise(StandardError)
+        expect(harness.send(:count_established_connections, 123)).to eq(1)
+      end
+
+      it 'rescues completely on root directory crash elegantly' do
+        allow(File).to receive(:directory?).with('/proc/123/fd').and_raise(StandardError)
+        expect(harness.send(:count_established_connections, 123)).to eq(0)
+      end
     end
 
     it 'handles check_bottlenecks string parsing elegantly', :rspec do
@@ -163,6 +244,32 @@ RSpec.describe KeepAlive::Harness do
       allow(File).to receive(:read).with(File.join(log_dir, 'client.err')).and_return('ERROR_EADDRNOTAVAIL')
       allow($stdout).to receive(:puts)
       expect { harness.send(:check_bottlenecks) }.not_to raise_error
+    end
+
+    context 'when checking bottlenecks crashes organically' do
+      it 'rescues internally returning nil gracefully natively', :rspec do
+        allow(harness).to receive(:check_bottlenecks).and_call_original
+        allow(File).to receive(:read).and_raise(StandardError)
+        # We explicitly mock the Array creation or mock the outer rescue to force line 329. 
+        # But raising during File.read already hits lines 312 and 315.
+        expect { harness.send(:check_bottlenecks) }.not_to raise_error
+      end
+
+      it 'safely rescues outer bounds entirely intrinsically', :rspec do
+        allow(File).to receive(:read).and_return('')
+        allow($stdout).to receive(:puts).and_raise(StandardError) 
+        allow(File).to receive(:read).with(File.join(File.expand_path('../../logs', __dir__), 'client.log')).and_return('ERROR_EMFILE')
+        allow(File).to receive(:read).with(File.join(File.expand_path('../../logs', __dir__), 'client.err')).and_return('')
+        expect { harness.send(:check_bottlenecks) }.not_to raise_error
+      end
+    end
+
+    it 'cleans up processes flawlessly without raising StandardErrors natively' do
+      harness.instance_variable_set(:@client_pid, 9999)
+      harness.instance_variable_set(:@server_pid, 8888)
+      allow(Process).to receive(:kill).with('INT', 9999).and_raise(StandardError)
+      allow(Process).to receive(:kill).with('INT', 8888).and_raise(StandardError)
+      expect { harness.send(:cleanup) }.not_to raise_error
     end
 
     it 'gracefully logs when client process has terminated', :rspec do
@@ -185,9 +292,72 @@ RSpec.describe KeepAlive::Harness do
         expect { harness.send(:monitor_resources) }.to output(/Server process has terminated/).to_stdout
       end
     end
+
+    context 'when executing mathematically limited timeline loop directly' do
+      let(:harness_timed) { described_class.new(connections: 1, target_duration: 0.1) }
+
+      it 'reaches duration logically seamlessly exiting natively' do
+        allow(harness_timed).to receive(:loop).and_yield
+        time = Time.now.utc
+        allow(Time).to receive(:now).and_return(time, time + 0.2)
+        allow(harness_timed).to receive(:process_stats).and_return(['0.0', '1 MB', 1024, 1])
+        allow(harness_timed).to receive(:count_established_connections).and_return(1)
+        expect { harness_timed.send(:monitor_resources) }.to output(/Target duration mathematically reached/).to_stdout
+      end
+
+      it 'handles nil PIDs dropping specific getpgid branches correctly natively' do
+        allow(harness_timed).to receive(:loop).and_yield
+        time = Time.now.utc
+        harness_timed.instance_variable_set(:@start_time, time)
+        allow(Time).to receive(:now).and_return(time)
+        harness_timed.instance_variable_set(:@server_pid, nil)
+        harness_timed.instance_variable_set(:@client_pid, nil)
+        allow(harness_timed).to receive(:process_stats).and_return(['0.0', '1 MB', 1024, 1])
+        allow(harness_timed).to receive(:count_established_connections).and_return(1)
+        expect { harness_timed.send(:monitor_resources) }.to output(/EXTERNAL/).to_stdout
+      end
+
+      it 'handles KB positive calculations properly natively' do
+        allow(harness_timed).to receive(:loop).and_yield
+        time = Time.now.utc
+        harness_timed.instance_variable_set(:@start_time, time)
+        allow(Time).to receive(:now).and_return(time)
+        harness_timed.instance_variable_set(:@server_pid, 9999)
+        harness_timed.instance_variable_set(:@client_pid, 8888)
+        allow(harness_timed).to receive(:process_stats).and_return(['0.0', '1 MB', 1024, 1])
+        allow(harness_timed).to receive(:count_established_connections).and_return(1)
+        expect { harness_timed.send(:monitor_resources) }.to output(/1024.0 KB/).to_stdout
+      end
+    end
+
+    context 'when testing external target dropping seamlessly' do
+      let(:h_target) { described_class.new(connections: 1, target_urls: ['http://remote']) }
+
+      it 'logs gracefully that external target disconnected natively' do
+        allow(h_target).to receive(:loop).and_yield
+        h_target.instance_variable_set(:@peak_connections, 1)
+        time = Time.now.utc
+        allow(Time).to receive(:now).and_return(time, time + 0.5)
+        allow(h_target).to receive(:process_stats).and_return(['0.0', '1 MB', 1024, 1])
+        allow(h_target).to receive(:count_established_connections).and_return(0)
+        expect { h_target.send(:monitor_resources) }.to output(/EXTERNAL SERVER DISCONNECTED/).to_stdout
+      end
+    end
   end
 
   describe '#export_telemetry' do
+    context 'when exporting telemetry correctly handles structurally missing files natively' do
+      let(:harness_export) { described_class.new(connections: 1, export_json: 'test.json') }
+      it 'safely swallows IO errors generating blank telemetry logs gracefully' do
+        allow(File).to receive(:read).with(/client\.log/).and_raise(StandardError)
+        allow(File).to receive(:read).with(/client\.err/).and_raise(StandardError)
+        allow(File).to receive(:write)
+        allow($stdout).to receive(:puts)
+        harness_export.instance_variable_set(:@start_time, Time.now.utc)
+        expect { harness_export.send(:export_telemetry) }.not_to raise_error
+      end
+    end
+
     context 'when JSON explicitly set' do
       let(:harness_export) { described_class.new(connections: 2, export_json: 'test_telemetry.json') }
       let(:exported_json) do

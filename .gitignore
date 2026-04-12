@@ -1,6 +1,6 @@
-logs/
+logs
 *.pid
-.gem/
-vendor/
-gems_unpacked/
-coverage/
+.gem
+vendor
+gems_unpacked
+coverage

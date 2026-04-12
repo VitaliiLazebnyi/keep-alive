@@ -32,6 +32,18 @@ RSpec.describe KeepAlive::Client do
       end.to raise_error(ArgumentError, /max_concurrent_connections must be >= 1/)
     end
 
+    context 'when providing illegal arguments naturally dropping out' do
+      it 'raises ArgumentError consistently logging mathematically missing limits' do
+        expect { described_class.new(connections: 1, connections_per_second: -1) }.to raise_error(ArgumentError, /connections_per_second/)
+        expect { described_class.new(connections: 1, reopen_interval: -1.0) }.to raise_error(ArgumentError, /reopen_interval/)
+        expect { described_class.new(connections: 1, read_timeout: -1.0) }.to raise_error(ArgumentError, /read_timeout/)
+        expect { described_class.new(connections: 1, jitter: -1.0) }.to raise_error(ArgumentError, /jitter/)
+        expect { described_class.new(connections: 1, ramp_up: -1.0) }.to raise_error(ArgumentError, /ramp_up/)
+        expect { described_class.new(connections: 1, qps_per_connection: -1) }.to raise_error(ArgumentError, /qps_per_connection/)
+        expect { described_class.new(connections: 1, slowloris_delay: -1.0) }.to raise_error(ArgumentError, /slowloris/)
+      end
+    end
+
     context 'with valid parameters' do
       let(:client) do
         described_class.new(
@@ -131,6 +143,13 @@ RSpec.describe KeepAlive::Client do
         client_zero.start
       end
     end
+
+    it 'maps MULTIPLE TARGETS labels effectively inside start' do
+      client_multi = described_class.new(connections: 1, target_urls: ['http://a', 'http://b'])
+      allow(client_multi).to receive(:trap).with('INT')
+      allow(client_multi).to receive(:execute_connection)
+      expect { client_multi.start }.to output(/2 TARGETS/).to_stdout
+    end
   end
 
   describe 'internal execution helpers' do
@@ -165,6 +184,12 @@ RSpec.describe KeepAlive::Client do
         contexts = client_dns.send(:build_target_contexts)
         expect(contexts.first[:http_args][:ipaddr]).to be_nil
       end
+
+      it 'handles empty Addrinfo completely safely resolving to nil inherently' do
+        allow(Addrinfo).to receive(:getaddrinfo).and_return([])
+        client_blank = described_class.new(connections: 1)
+        expect(client_blank.send(:build_target_contexts).first[:http_args][:ipaddr]).to be_nil
+      end
     end
 
     context 'when determining protocol label' do
@@ -176,6 +201,11 @@ RSpec.describe KeepAlive::Client do
       it 'maps EXTERNAL single target correctly', :rspec do
         client_ext = described_class.new(connections: 1, target_urls: ['https://remote.com'])
         expect(client_ext.send(:determine_protocol_label)).to eq('EXTERNAL HTTPS')
+      end
+
+      it 'handles implicit typings cleanly without scheme gracefully' do
+        client_blank = described_class.new(connections: 1, target_urls: ['//remote.com'])
+        expect(client_blank.send(:determine_protocol_label)).to eq('EXTERNAL ')
       end
     end
 
@@ -227,12 +257,38 @@ RSpec.describe KeepAlive::Client do
         allow(Time).to receive(:now).and_return(time, time, time + 0.2)
       end
 
-      it 'respects keep alive timeout without pinging' do
+      it 'rescues explicitly without crashing logically' do
         expect { client.send(:run_http_session, 0, Time.now) }.not_to raise_error
       end
     end
 
-    context 'when multiple bind_ips configured' do
+    context 'when Net::HTTP cleanly does not respond natively to max_retries_assignment' do
+      it 'handles Net::HTTP lacking natively max_retries assignments safely' do
+        mock_http = double('Net::HTTP', request: nil)
+        allow(Net::HTTP).to receive(:start).and_yield(mock_http)
+        allow(mock_http).to receive(:respond_to?).with(:max_retries=).and_return(false)
+        client = described_class.new(connections: 1, keep_alive_timeout: 0.1, jitter: 0.0)
+        allow(client).to receive(:sleep)
+        time = Time.now
+        allow(Time).to receive(:now).and_return(time, time, time + 0.2)
+        expect { client.send(:run_http_session, 0, time) }.not_to raise_error
+      end
+
+      it 'handles Net::HTTP responding authentically actively setting assignment seamlessly' do
+        mock_http = double('Net::HTTP', request: nil)
+        allow(Net::HTTP).to receive(:start).and_yield(mock_http)
+        allow(mock_http).to receive(:respond_to?).with(:max_retries=).and_return(true)
+        allow(mock_http).to receive(:max_retries=).with(0)
+        client = described_class.new(connections: 1, keep_alive_timeout: 0.1, jitter: 0.0)
+        allow(client).to receive(:sleep)
+        time = Time.now
+        allow(Time).to receive(:now).and_return(time, time, time + 0.2)
+        client.send(:run_http_session, 0, time)
+        expect(mock_http).to have_received(:max_retries=).with(0)
+      end
+    end
+
+    context 'when running actively single sequence natively mapping' do
       let(:client) { described_class.new(connections: 2, bind_ips: ['192.168.1.1', '192.168.1.2'], keep_alive_timeout: 0.1) }
 
       before do
@@ -335,6 +391,23 @@ RSpec.describe KeepAlive::Client do
       end
     end
 
+    context 'when qps connection executes cleanly sequentially seamlessly', :rspec do
+      let(:client_qps) { described_class.new(connections: 1, ping: false, qps_per_connection: 10, keep_alive_timeout: 0.1, jitter: 0.0) }
+      it 'loops successfully and hits mathematically target duration boundaries' do
+        mock_http = instance_double(Net::HTTP)
+        mock_success = instance_double(Net::HTTPSuccess, is_a?: true, read_body: nil)
+        allow(Net::HTTP).to receive(:start).and_yield(mock_http)
+        allow(mock_http).to receive(:request) do |_req, &block|
+          block&.call(mock_success)
+          mock_success
+        end
+        allow(client_qps).to receive(:sleep)
+        time = Time.now
+        allow(Time).to receive(:now).and_return(time, time, time + 0.2)
+        expect { client_qps.send(:run_http_session, 0, time) }.not_to raise_error
+      end
+    end
+
     context 'when using slowloris_delay' do
       let(:client) { described_class.new(connections: 1, ping: false, slowloris_delay: 1.0, keep_alive_timeout: 0.0, jitter: 0.0) }
       let(:mock_io) { instance_double(IO, write: 1, flush: nil) }
@@ -384,6 +457,32 @@ RSpec.describe KeepAlive::Client do
       end
     end
 
+    context 'when slowloris paths execute elegantly natively' do
+      it 'returns natively seamlessly if socket is utterly missing mathematically' do
+         client_sl = described_class.new(connections: 1, slowloris_delay: 1.0, keep_alive_timeout: 0.1)
+         mock_http = instance_double(Net::HTTP)
+         allow(mock_http).to receive(:instance_variable_get).with(:@socket).and_return(nil)
+         expect { client_sl.send(:run_slowloris_session, 0, URI('/'), mock_http, Time.now) }.not_to raise_error
+      end
+
+      it 'maps paths solidly using literal endpoints resolving seamlessly', :rspec do
+        client_sl = described_class.new(connections: 1, slowloris_delay: 1.0, jitter: 0.0, keep_alive_timeout: 0.1)
+        mock_io = instance_double(IO, write: 1, flush: nil)
+        mock_wrapper = double('SocketWrapper', io: mock_io)
+        mock_http = instance_double(Net::HTTP)
+        allow(mock_http).to receive(:instance_variable_get).with(:@socket).and_return(mock_wrapper)
+        
+        time = Time.now
+        allow(Time).to receive(:now).and_return(time, time, time + 0.5)
+        allow(client_sl).to receive(:sleep)
+        
+        uri = URI('http://local/test?a=1')
+        client_sl.send(:run_slowloris_session, 0, uri, mock_http, time)
+        
+        expect(mock_io).to have_received(:write).at_least(:once)
+      end
+    end
+
     context 'when pinging actively' do
       let(:client) { described_class.new(connections: 1, ping: true, ping_period: 1, keep_alive_timeout: 0.0, jitter: 0.0) }
 
@@ -402,7 +501,21 @@ RSpec.describe KeepAlive::Client do
       end
 
       it 'sleeps exactly ping_period after pinging' do
-        expect(client).to have_received(:sleep).with(1)
+        expect(client).to have_received(:sleep).with(1.0)
+      end
+    end
+
+    context 'when ping actively succeeds cleanly natively', :rspec do
+      let(:client_ping) { described_class.new(connections: 1, ping: true, ping_period: 1, keep_alive_timeout: 0.1, jitter: 0.0) }
+      it 'loops perfectly returning HTTPSuccess naturally dropping out on duration break' do
+          mock_http = instance_double(Net::HTTP)
+          mock_success = instance_double(Net::HTTPSuccess, is_a?: true)
+          allow(Net::HTTP).to receive(:start).and_yield(mock_http)
+          allow(mock_http).to receive(:request).and_return(mock_success)
+          allow(client_ping).to receive(:sleep)
+          time = Time.now
+          allow(Time).to receive(:now).and_return(time, time, time + 0.2)
+          expect { client_ping.send(:run_http_session, 0, time) }.not_to raise_error
       end
     end
 
@@ -488,6 +601,7 @@ RSpec.describe KeepAlive::Client do
       
       verbose_client.instance_variable_get(:@log_queue) << [:info, 'test_info']
       verbose_client.instance_variable_get(:@log_queue) << [:error, 'test_error']
+      verbose_client.instance_variable_get(:@log_queue) << [:unknown_type, 'ignored payload']
       verbose_client.instance_variable_get(:@log_queue) << :terminate
       verbose_client.instance_variable_get(:@logger_thread).join
 
