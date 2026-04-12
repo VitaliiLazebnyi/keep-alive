@@ -5,16 +5,34 @@ By circumventing traditional `1:1` OS Thread-per-connection blockers and utilizi
 
 ---
 
+## Why & When to Use This Gem?
+
+Traditional load testing tools (like `wrk`, Apache Bench, or Locust) are heavily optimized to maximize **Requests Per Second (RPS)** across short-lived HTTP connections. However, they struggle structurally when mathematically tasked with sustaining hundreds of thousands of *idle, continuous* connections simultaneously due to Thread context-switching overhead or memory limits.
+
+**You need `keep_alive` when your principal bottleneck is concurrency, not throughput.**
+
+### Core Use Cases:
+1. **Testing Persistent Connections (SSE/WebSockets)**: Validating how gracefully your backend or infrastructure handles 100,000+ active users holding open Event Streams, WebSockets, or Long-Polling links without doing constant background work.
+2. **Infrastructure Limitation Discovery**: Revealing hidden OS configuration ceilings before deployment, precisely finding edge drops such as File Descriptor starvation (`EMFILE`), Ephemeral Port exhaustion (`EADDRNOTAVAIL`), or reverse proxy RAM caps.
+3. **Evaluating Cloud Load Balancers/Gateways**: Discovering the exact threshold where an AWS Application Load Balancer or Nginx edge autonomously decides to drop idle Keep-Alive mappings to release native memory.
+4. **Resilience & Slowloris Simulation**: Ensuring your Thread-based infrastructure (e.g. Puma) correctly maps constraints and doesn't experience total thread-pool lockups when subjected to thousands of concurrent malicious stalled connections gracefully holding sockets hostage.
+
+---
+
 ## Technical Dependencies
 
 **Strict Requirements**
 - **Ruby 4.0.2** (or strictly any Ruby 4.x environment that enforces native `Fiber::Scheduler` mechanics).
 - **Core Gems**: `rack`, `rackup`, `falcon`, `async`, `async-http`
 
-**Environment Initialization**
-Ensure your dependencies match the ecosystem exactly using Bundler:
+**Installation**
+You can install the project globally as a gem which exposes the `keep_alive` executable:
 ```bash
-bundle install
+gem install keep_alive
+```
+Or add it to your project via Bundler:
+```bash
+bundle add keep_alive
 ```
 
 ---
@@ -23,29 +41,29 @@ bundle install
 
 The architecture relies gracefully on three decoupled components mathematically synced through environment wrappers:
 
-### 1. `harness.rb` (The Orchestrator)
+### 1. `keep_alive harness` (The Orchestrator)
 The brain of the test. It parses constraints, artificially lifts File Descriptor caps (`setrlimit`), seamlessly manages process spawning, detects hardware bottlenecks in real-time, and aggressively reads Unix metrics (`ps`, `lsof`) translating them into a highly readable dashboard telemetry loop.
 
-### 2. `server.rb` (The Local Endpoint)
+### 2. `keep_alive server` (The Local Endpoint)
 Instead of relying on blocking thread platforms (like Puma), the local endpoint hosts `Rackup::Handler::Falcon`. It serves an infinite lightweight `Server-Sent Events` (SSE) heartbeat (`data: ping\n\n`) mapped strictly to the asynchronous reactor, rendering CPU overhead practically non-existent.
 
-### 3. `client.rb` (The Asynchronous Initiator)
+### 3. `keep_alive client` (The Asynchronous Initiator)
 The client bypasses expensive `Thread.new` wrappers and deploys raw `Async` fiber blocks executing `Net::HTTP.start`. By utilizing `sleep`, the connections are specifically configured to never close from the client-side unless the target physically hangs up, guaranteeing true metric validation for idle Keep-Alive limits.
 
 ---
 
 ## Detailed Command-Line Parameters
 
-You engage all functions purely through the root `harness.rb` wrapper.
+You engage all functions purely through the `keep_alive` executable command interface.
 
 **Syntax:**
-`bundle exec ruby bin/harness [--connections_count=NUM] [FLAGS...]`
+`keep_alive harness [--connections_count=NUM] [FLAGS...]`
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
 | `--connections_count=` | Integer | Optional | The total number of TCP sessions to spawn natively across the whole test. Defaults to 1000. (Must be >= 1). |
 | `--https` | Flag | Optional | Configures TLS/SSL context. Forces internal targets to boot securely on `8443` and configures client payloads with `VERIFY_NONE`. |
-| `--url=` | String | Optional | Triggers **External Target Mode** (e.g. `--url=https://site1.com,https://site2.com`). Harness bypasses local `server.rb` boot sequences completely to swarm remote targets via natively load-balanced round-robin. |
+| `--url=` | String | Optional | Triggers **External Target Mode** (e.g. `--url=https://site1.com,https://site2.com`). Harness bypasses local `keep_alive server` boot sequences completely to swarm remote targets via natively load-balanced round-robin. |
 | `--verbose` | Flag | Optional | Enables extensive verbose logging dynamically mapping TCP `Connection established` and closures strictly into the Thread-safe `./logs/client.log` mutex. |
 | `--[no-]ping` | Flag | Optional | Toggles Keep-Alive dynamic heartbeat pings off or on (default `true`). Sends an explicit `HEAD` request within the Keep-Alive tunnel routinely. |
 | `--ping_period=` | Integer | Optional | Time in seconds strictly bounding how often Keep-Alive fiber pings aggressively repeat. Defaults to `5`. |
@@ -74,23 +92,23 @@ You engage all functions purely through the root `harness.rb` wrapper.
 ### Scenario 1: Standard Plaintext Benchmarking
 Benchmarks connection stability against the local application using plaintext packets. Perfect for finding file-descriptor limitations natively.
 ```bash
-bundle exec ruby bin/harness --connections_count=150000
+keep_alive harness --connections_count=150000
 ```
-> Boots internal `server.rb` implicitly on HTTP strictly port `8080`.
+> Boots internal `keep_alive server` implicitly on HTTP strictly port `8080`.
 
 ### Scenario 2: Encryption Cost Calculation
 Forces both local client/server infrastructure seamlessly into encrypted protocols using self-generated mathematical PKI contexts.
 ```bash
-bundle exec ruby bin/harness --connections_count=1000 --https
+keep_alive harness --connections_count=1000 --https
 ```
-> Boots internal `server.rb` natively on HTTPS securely executing over port `8443`.
+> Boots internal `keep_alive server` natively on HTTPS securely executing over port `8443`.
 
 ### Scenario 3: External Endpoint Durability Testing
 Testing a foreign server (e.g., Google Maps) to determine exactly what their Keep-Alive edge restrictions natively drop out at.
 ```bash
-bundle exec ruby bin/harness --connections_count=5 --url="https://www.google.com/maps"
+keep_alive harness --connections_count=5 --url="https://www.google.com/maps"
 ```
-> Avoids booting `server.rb`. Metric Dashboard displays `"EXTERNAL"` for server metrics, while strictly tracking `Real Conns`. (Metrics show Google enforces a strict ~240-second (4 min) idle keep-alive retention hook before resetting TCP routes!).
+> Avoids booting `keep_alive server`. Metric Dashboard displays `"EXTERNAL"` for server metrics, while strictly tracking `Real Conns`. (Metrics show Google enforces a strict ~240-second (4 min) idle keep-alive retention hook before resetting TCP routes!).
 
 ### Scenario 4: Automated Orchestrator Scripts (Executors)
 Instead of monitoring the terminal manually indefinitely, you can write Ruby wrapper scripts to trigger tests sequentially or track metrics completely autonomously.
@@ -102,13 +120,13 @@ require 'fileutils'
 # test_protocols.rb
 
 puts 'Starting HTTP burst...'
-pid1 = spawn('bundle exec ruby bin/harness --connections_count=10', out: 'http.log', err: 'http.err')
+pid1 = spawn('keep_alive harness --connections_count=10', out: 'http.log', err: 'http.err')
 sleep 5
 Process.kill('INT', pid1)
 Process.wait(pid1)
 
 puts 'Starting HTTPS burst...'
-pid2 = spawn('bundle exec ruby bin/harness --connections_count=10 --https', out: 'https.log', err: 'https.err')
+pid2 = spawn('keep_alive harness --connections_count=10 --https', out: 'https.log', err: 'https.err')
 sleep 5
 Process.kill('INT', pid2)
 Process.wait(pid2)
@@ -121,7 +139,7 @@ require 'fileutils'
 # test_endurance.rb
 
 start_time = Time.now
-pid = spawn("bundle exec ruby bin/harness --connections_count=5 --url='https://example.com'", out: 'monitor.log', err: 'monitor.err')
+pid = spawn("keep_alive harness --connections_count=5 --url='https://example.com'", out: 'monitor.log', err: 'monitor.err')
 sleep 10 # Wait for native initialization
 
 loop do
@@ -145,7 +163,7 @@ Process.kill('INT', pid)
 
 ## 📊 Telemetry Metrics Explained
 
-The `harness.rb` dashboard prints active, real-time measurements describing exactly how the client is scaling.
+The `keep_alive harness` dashboard prints active, real-time measurements describing exactly how the client is scaling.
 
 * **Time (UTC)**: Current absolute time in the UTC format for strict log matching.
 * **Real Conns (Real Connections)**: This column strictly calculates the physical number of dynamically established network sockets originating from the active `client` loop.
@@ -184,8 +202,8 @@ ulimit -n 250000
 
 **3. External Connection Timeouts (Keep-Alive Death)**
 * **The Behavior:** When testing foreign servers (e.g., `--url=...`), external networking edges enforce strict limits on how long an idle HTTP TCP tunnel remains in `ESTABLISHED` mode.
-* **The Insight:** Because `client.rb` is engineered to `sleep` natively on $0.0\%$ CPU while holding the socket open, it will never close the connection locally. Instead, the upstream firewall organically terminates it.
-* **The Automation:** The main `harness.rb` pipeline automatically calculates your peak connection limits. The exact moment the local OS recognizes the socket dropped natively (lapsing from `5` back down to `0`), the metric dashboard natively halts itself, intercepts the timeout organically, and reports exactly how long it survived directly to standard output:
+* **The Insight:** Because the `keep_alive client` is engineered to `sleep` natively on $0.0\%$ CPU while holding the socket open, it will never close the connection locally. Instead, the upstream firewall organically terminates it.
+* **The Automation:** The main `keep_alive harness` pipeline automatically calculates your peak connection limits. The exact moment the local OS recognizes the socket dropped natively (lapsing from `5` back down to `0`), the metric dashboard natively halts itself, intercepts the timeout organically, and reports exactly how long it survived directly to standard output:
 ```text
 [Harness] ⚠️ EXTERNAL SERVER DISCONNECTED! All TCP Keep-Alive sockets were forcefully dropped.
 [Harness] The endpoints natively survived for mathematically 242.25 seconds.
