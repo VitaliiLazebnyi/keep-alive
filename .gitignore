@@ -6,3 +6,7 @@ coverage
 gems_unpacked
 logs
 vendor
+*.json
+*.out
+rspec_output.txt
+.bundle/
