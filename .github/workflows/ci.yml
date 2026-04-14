@@ -35,9 +35,3 @@ jobs:
 
     - name: Check Gem Build
       run: gem build keep_alive.gemspec
-
-    - name: Upload Gem Artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: keep-alive-gem
-        path: "*.gem"
