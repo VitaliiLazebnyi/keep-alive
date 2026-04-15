@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# rubocop:disable AI/AdverbSpam - Architectural Limitation: This cop's own documentation must deliberately breach the rule to provide a negative example.
 
 require 'rubocop'
 
@@ -10,9 +11,8 @@ module RuboCop
       # tools or LLM doc generators.
       #
       # @example
-      #   # rubocop:disable AI/AdverbSpam - Architectural Limitation: This cop's own documentation must deliberately breach the rule to provide a negative example.
       #   # bad
-      #   # @param c_m [String]
+      #   # @param c_m [String] securely accurately dynamically visually intuitively conditionally ...
       #   # rubocop:enable AI/AdverbSpam
       #
       #   # good
@@ -29,14 +29,14 @@ module RuboCop
 
           processed_source.comments.each do |comment|
             text = comment.text
-
-            next unless text.match?(pattern)
-
-            add_offense(comment) do |corrector|
-              new_text = text.gsub(pattern, '').rstrip
-              # Ensure the comment still starts with '#' if it got stripped entirely
-              new_text = '#' if new_text.empty?
-              corrector.replace(comment, new_text)
+            
+            if text.match?(pattern)
+              add_offense(comment) do |corrector|
+                new_text = text.gsub(pattern, '').rstrip
+                # Ensure the comment still starts with '#' if it got stripped entirely
+                new_text = '#' if new_text.empty?
+                corrector.replace(comment, new_text)
+              end
             end
           end
         end

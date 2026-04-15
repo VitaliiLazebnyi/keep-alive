@@ -4,7 +4,7 @@
 
 # @author Vitalii Lazebnyi
 # @since 0.1.0
-# Entrypoint executable orchestrating the `client`, `server`, and `harness` load testing subsystems
+# Entrypoint executable orchestrating the `client`, `server`, and `harness` load testing subsystems in a secure and reliable manner.
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__)) unless $LOAD_PATH.include?(File.expand_path('../lib', __dir__))
 require 'http_loader'
