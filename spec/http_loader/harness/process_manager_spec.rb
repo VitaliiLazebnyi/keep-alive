@@ -21,7 +21,7 @@ RSpec.describe HttpLoader::Harness::ProcessManager do
 
     it 'returns true when server dies gracefully explicitly' do
       cfg = HttpLoader::Harness::Config.new(target_urls: [], connections: 1, use_https: false, client_args: [],
-                                           export_json: nil)
+                                            export_json: nil)
       mgr = described_class.new(cfg)
 
       allow(Process).to receive(:getpgid).and_raise(Errno::ESRCH)

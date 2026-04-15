@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
   spec.metadata['rubygems_mfa_required'] = 'true'
 
   spec.cert_chain  = ['certs/http_loader-public_cert.pem']
-  spec.signing_key = File.expand_path('~/.gem/gem-private_key.pem') if $PROGRAM_NAME =~ /gem\z/
+  spec.signing_key = File.expand_path('~/.gem/gem-private_key.pem') if $PROGRAM_NAME.end_with?('gem')
 
   spec.files = %w[
     BUGS.md
