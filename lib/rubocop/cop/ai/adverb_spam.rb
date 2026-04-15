@@ -1,5 +1,6 @@
 # frozen_string_literal: true
-# rubocop:disable AI/AdverbSpam - Architectural Limitation: This cop's own documentation must deliberately breach the rule to provide a negative example.
+
+# rubocop:disable AI/AdverbSpam -- Architectural Limitation: This cop's own documentation must deliberately breach the rule to provide a negative example.
 
 require 'rubocop'
 
@@ -13,7 +14,6 @@ module RuboCop
       # @example
       #   # bad
       #   # @param c_m [String] securely accurately dynamically visually intuitively conditionally ...
-      #   # rubocop:enable AI/AdverbSpam
       #
       #   # good
       #   # @param c_m [String] the properly formatted parameter
@@ -29,14 +29,13 @@ module RuboCop
 
           processed_source.comments.each do |comment|
             text = comment.text
-            
-            if text.match?(pattern)
-              add_offense(comment) do |corrector|
-                new_text = text.gsub(pattern, '').rstrip
-                # Ensure the comment still starts with '#' if it got stripped entirely
-                new_text = '#' if new_text.empty?
-                corrector.replace(comment, new_text)
-              end
+            next unless text.match?(pattern)
+
+            add_offense(comment) do |corrector|
+              new_text = text.gsub(pattern, '').rstrip
+              # Ensure the comment still starts with '#' if it got stripped entirely
+              new_text = '#' if new_text.empty?
+              corrector.replace(comment, new_text)
             end
           end
         end
@@ -44,3 +43,4 @@ module RuboCop
     end
   end
 end
+# rubocop:enable AI/AdverbSpam
