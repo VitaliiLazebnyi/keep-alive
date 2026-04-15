@@ -2,9 +2,9 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'keep_alive/harness/telemetry'
+require 'http_loader/harness/telemetry'
 
-RSpec.describe KeepAlive::Harness::Telemetry do
+RSpec.describe HttpLoader::Harness::Telemetry do
   let(:telemetry) { described_class.new('/logs', 'test.json') }
 
   before do

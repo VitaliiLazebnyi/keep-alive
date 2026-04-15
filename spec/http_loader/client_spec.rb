@@ -3,9 +3,9 @@
 
 require 'spec_helper'
 
-RSpec.describe KeepAlive::Client do
+RSpec.describe HttpLoader::Client do
   let(:config) do
-    KeepAlive::Client::Config.new(
+    HttpLoader::Client::Config.new(
       connections: 2,
       target_urls: ['http://localhost'],
       max_concurrent_connections: 2
@@ -16,10 +16,10 @@ RSpec.describe KeepAlive::Client do
 
   before do
     allow($stdout).to receive(:puts)
-    allow_any_instance_of(KeepAlive::Client::Logger).to receive(:setup_files!)
-    allow_any_instance_of(KeepAlive::Client::Logger).to receive(:flush_synchronously!)
-    allow_any_instance_of(KeepAlive::Client::Logger).to receive(:run_task).and_return(instance_double(Async::Task, stop: nil))
-    allow_any_instance_of(KeepAlive::Client::Logger).to receive(:info)
+    allow_any_instance_of(HttpLoader::Client::Logger).to receive(:setup_files!)
+    allow_any_instance_of(HttpLoader::Client::Logger).to receive(:flush_synchronously!)
+    allow_any_instance_of(HttpLoader::Client::Logger).to receive(:run_task).and_return(instance_double(Async::Task, stop: nil))
+    allow_any_instance_of(HttpLoader::Client::Logger).to receive(:info)
   end
 
   describe '#start' do
@@ -36,19 +36,19 @@ RSpec.describe KeepAlive::Client do
 
   describe '#calc_ramp' do
     it 'returns ramp_up mathematically apportioned' do
-      cfg = KeepAlive::Client::Config.new(connections: 2, ramp_up: 10.0)
+      cfg = HttpLoader::Client::Config.new(connections: 2, ramp_up: 10.0)
       cli = described_class.new(cfg)
       expect(cli.send(:calc_ramp)).to eq(5.0)
     end
 
     it 'returns connections_per_second appropriately' do
-      cfg = KeepAlive::Client::Config.new(connections: 2, connections_per_second: 10)
+      cfg = HttpLoader::Client::Config.new(connections: 2, connections_per_second: 10)
       cli = described_class.new(cfg)
       expect(cli.send(:calc_ramp)).to eq(0.1)
     end
 
     it 'returns 0.0 directly when no limits configure mathematically' do
-      cfg = KeepAlive::Client::Config.new(connections: 2)
+      cfg = HttpLoader::Client::Config.new(connections: 2)
       cli = described_class.new(cfg)
       expect(cli.send(:calc_ramp)).to eq(0.0)
     end
@@ -71,13 +71,13 @@ RSpec.describe KeepAlive::Client do
 
   describe '#calc_sleep' do
     it 'returns natively exact base cleanly accurately naturally' do
-      cfg = KeepAlive::Client::Config.new(connections: 2, jitter: 0.0)
+      cfg = HttpLoader::Client::Config.new(connections: 2, jitter: 0.0)
       cli = described_class.new(cfg)
       expect(cli.send(:calc_sleep, 10.0)).to eq(10.0)
     end
 
     it 'returns variance bounds mathematically when actively calculated properly dynamically' do
-      cfg = KeepAlive::Client::Config.new(connections: 2, jitter: 0.5)
+      cfg = HttpLoader::Client::Config.new(connections: 2, jitter: 0.5)
       cli = described_class.new(cfg)
       allow(cli).to receive(:rand).and_return(0.0)
       expect(cli.send(:calc_sleep, 10.0)).to eq(10.0)
@@ -86,7 +86,7 @@ RSpec.describe KeepAlive::Client do
 
   describe '#exec_conn' do
     it 'runs loops naturally seamlessly breaking mathematically accurately natively' do
-      cfg = KeepAlive::Client::Config.new(connections: 2, reopen_closed_connections: false)
+      cfg = HttpLoader::Client::Config.new(connections: 2, reopen_closed_connections: false)
       cli = described_class.new(cfg)
       allow(cli).to receive(:run_session)
       cli.send(:exec_conn, 0)
@@ -94,7 +94,7 @@ RSpec.describe KeepAlive::Client do
     end
 
     it 'loops correctly accurately returning naturally dynamically' do
-      cfg = KeepAlive::Client::Config.new(connections: 2, reopen_closed_connections: true, reopen_interval: 1.0)
+      cfg = HttpLoader::Client::Config.new(connections: 2, reopen_closed_connections: true, reopen_interval: 1.0)
       cli = described_class.new(cfg)
       call_cnt = 0
       allow(cli).to receive(:run_session) {
@@ -156,20 +156,20 @@ RSpec.describe KeepAlive::Client do
 
   describe '#dispatch_sess' do
     it 'dispatches properly definitively accurately fully natively securely' do
-      cfg = KeepAlive::Client::Config.new(connections: 1, slowloris_delay: 0.1)
+      cfg = HttpLoader::Client::Config.new(connections: 1, slowloris_delay: 0.1)
       cli = described_class.new(cfg)
       mock_http = Net::HTTP.new('localhost')
-      allow_any_instance_of(KeepAlive::Client::Slowloris).to receive(:run)
+      allow_any_instance_of(HttpLoader::Client::Slowloris).to receive(:run)
       cli.send(:dispatch_sess, 0, URI.parse('http://localhost'), mock_http, Time.now)
 
       expect(cli.instance_variable_get(:@slow_sess)).to have_received(:run)
     end
 
     it 'dispatches flawlessly cleanly gracefully rationally dynamically inherently' do
-      cfg = KeepAlive::Client::Config.new(connections: 1, slowloris_delay: 0.0)
+      cfg = HttpLoader::Client::Config.new(connections: 1, slowloris_delay: 0.0)
       cli = described_class.new(cfg)
       mock_http = Net::HTTP.new('localhost')
-      allow_any_instance_of(KeepAlive::Client::HttpSession).to receive(:run)
+      allow_any_instance_of(HttpLoader::Client::HttpSession).to receive(:run)
       cli.send(:dispatch_sess, 0, URI.parse('http://localhost'), mock_http, Time.now)
 
       expect(cli.instance_variable_get(:@http_sess)).to have_received(:run)

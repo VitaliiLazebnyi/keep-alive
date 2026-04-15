@@ -2,14 +2,14 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'keep_alive/client/target_manager'
-require 'keep_alive/client/config'
+require 'http_loader/client/target_manager'
+require 'http_loader/client/config'
 
-RSpec.describe KeepAlive::Client::TargetManager do
+RSpec.describe HttpLoader::Client::TargetManager do
   let(:config) do
-    KeepAlive::Client::Config.new(
+    HttpLoader::Client::Config.new(
       connections: 1, target_urls: ['http://local'], use_https: false,
-      verbose: false, ping: false, ping_period: 0, keep_alive_timeout: 0.0,
+      verbose: false, ping: false, ping_period: 0, http_loader_timeout: 0.0,
       connections_per_second: 0, max_concurrent_connections: 1,
       reopen_closed_connections: false, reopen_interval: 0.0,
       read_timeout: 5.0, user_agent: 'A', jitter: 0.0,

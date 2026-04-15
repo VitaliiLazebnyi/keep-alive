@@ -6,7 +6,7 @@ require 'sorbet-runtime'
 module KeepAlive
   # Extracted arguments parsers for strict metric compliance.
   module CliArgs
-    # ClientParser configures OptionParser mapping specifically for Client configurations securely natively.
+    # ClientParser configures OptionParser mapping specifically for Client configurations
     class ClientParser
       def self.parse(opts, options)
         parse_core(opts, options)

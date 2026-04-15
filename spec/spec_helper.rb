@@ -8,9 +8,9 @@ SimpleCov.start do
 end
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
-require 'keep_alive/server'
-require 'keep_alive/client'
-require 'keep_alive/harness'
+require 'http_loader/server'
+require 'http_loader/client'
+require 'http_loader/harness'
 
 Dir[File.join(__dir__, 'support', '**', '*.rb')].each { |f| require f }
 

@@ -2,9 +2,13 @@
 # typed: false
 # frozen_string_literal: true
 
+# @author Vitalii Lazebnyi
+# @since 0.1.0
+# Entrypoint executable orchestrating the `client`, `server`, and `harness` load testing subsystems safely logically safely correctly reliably organically magically conditionally gracefully organically organically seamlessly rationally.
+
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__)) unless $LOAD_PATH.include?(File.expand_path('../lib', __dir__))
-require 'keep_alive'
-require 'keep_alive/cli_args'
+require 'http_loader'
+require 'http_loader/cli_args'
 require 'optparse'
 
 command = ARGV.shift
@@ -12,13 +16,13 @@ command = ARGV.shift
 case command
 when 'client'
   options = { connections: 1000, use_https: false, target_urls: [], verbose: false, ping: true, ping_period: 5,
-              keep_alive_timeout: 0.0, connections_per_second: 0, max_concurrent_connections: nil,
+              http_loader_timeout: 0.0, connections_per_second: 0, max_concurrent_connections: nil,
               reopen_closed_connections: false, reopen_interval: 5.0, read_timeout: 0.0, user_agent: 'Keep-Alive Test',
               ramp_up: 0.0, bind_ips: [], proxy_pool: [], qps_per_connection: 0, headers: {}, slowloris_delay: 0.0 }
 
   OptionParser.new do |opts|
-    opts.banner = 'Usage: keep_alive client [options]'
-    KeepAlive::CliArgs::ClientParser.parse(opts, options)
+    opts.banner = 'Usage: http_loader client [options]'
+    HttpLoader::CliArgs::ClientParser.parse(opts, options)
   end.parse!(ARGV)
 
   options[:max_concurrent_connections] ||= options[:connections]
@@ -27,10 +31,10 @@ when 'client'
   options[:track_status_codes] ||= false
 
   begin
-    config = KeepAlive::Client::Config.new(
+    config = HttpLoader::Client::Config.new(
       connections: options[:connections], target_urls: options[:target_urls], use_https: options[:use_https],
       verbose: options[:verbose], ping: options[:ping], ping_period: options[:ping_period],
-      keep_alive_timeout: options[:keep_alive_timeout], connections_per_second: options[:connections_per_second],
+      http_loader_timeout: options[:http_loader_timeout], connections_per_second: options[:connections_per_second],
       max_concurrent_connections: options[:max_concurrent_connections],
       reopen_closed_connections: options[:reopen_closed_connections],
       reopen_interval: options[:reopen_interval], read_timeout: options[:read_timeout],
@@ -40,7 +44,7 @@ when 'client'
       qps_per_connection: options[:qps_per_connection],
       headers: options[:headers], slowloris_delay: options[:slowloris_delay]
     )
-    KeepAlive::Client.new(config).start
+    HttpLoader::Client.new(config).start
   rescue ArgumentError => e
     warn "Configuration Error: #{e.message}"
     exit(1)
@@ -48,29 +52,29 @@ when 'client'
 
 when 'server'
   use_https = ARGV.include?('--https')
-  KeepAlive::Server.new.start(use_https: use_https, port: use_https ? 8443 : 8080)
+  HttpLoader::Server.new.start(use_https: use_https, port: use_https ? 8443 : 8080)
 
 when 'harness'
   original_args = ARGV.dup
   options = { connections: 1000, use_https: false, target_urls: [], export_json: nil, target_duration: 0.0 }
 
   OptionParser.new do |opts|
-    opts.banner = 'Usage: keep_alive harness [options]'
-    KeepAlive::CliArgs::HarnessParser.parse(opts, options)
+    opts.banner = 'Usage: http_loader harness [options]'
+    HttpLoader::CliArgs::HarnessParser.parse(opts, options)
   end.parse!(ARGV)
 
   begin
-    hconfig = KeepAlive::Harness::Config.new(
+    hconfig = HttpLoader::Harness::Config.new(
       connections: options[:connections], target_urls: options[:target_urls], use_https: options[:use_https],
       client_args: original_args, export_json: options[:export_json], target_duration: options[:target_duration]
     )
-    KeepAlive::Harness.new(hconfig).start
+    HttpLoader::Harness.new(hconfig).start
   rescue ArgumentError => e
     warn "Configuration Error: #{e.message}"
     exit(1)
   end
 
 else
-  warn 'Usage: keep_alive <client|server|harness> [options]'
+  warn 'Usage: http_loader <client|server|harness> [options]'
   exit(1)
 end

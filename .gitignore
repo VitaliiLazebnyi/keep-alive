@@ -9,3 +9,7 @@ vendor
 *.json
 *.out
 rspec_output.txt
+
+# YARD Documentation
+.yardoc/
+doc/

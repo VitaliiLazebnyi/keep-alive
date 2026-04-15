@@ -2,11 +2,11 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'keep_alive/harness'
+require 'http_loader/harness'
 
-RSpec.describe KeepAlive::Harness::Formatter do
+RSpec.describe HttpLoader::Harness::Formatter do
   let(:dummy_class) do
-    Class.new(KeepAlive::Harness) do
+    Class.new(HttpLoader::Harness) do
       def initialize(config)
         super
         @config = config
@@ -14,7 +14,7 @@ RSpec.describe KeepAlive::Harness::Formatter do
     end
   end
 
-  let(:config) { KeepAlive::Harness::Config.new(target_urls: [], connections: 1, use_https: false, client_args: [], export_json: nil) }
+  let(:config) { HttpLoader::Harness::Config.new(target_urls: [], connections: 1, use_https: false, client_args: [], export_json: nil) }
   let(:harness) { dummy_class.new(config) }
 
   before do
@@ -70,11 +70,11 @@ RSpec.describe KeepAlive::Harness::Formatter do
   describe '#print_combined_stats' do
     it 'formats logs elegantly outputting gracefully' do
       # We just need to mock monitor and pm and test execution
-      monitor = instance_double(KeepAlive::Harness::ResourceMonitor)
+      monitor = instance_double(HttpLoader::Harness::ResourceMonitor)
       allow(monitor).to receive_messages(process_stats: ['1.0', '10MB', 10_240.0, 2], count_established_connections: 0)
       harness.instance_variable_set(:@monitor, monitor)
 
-      pm = instance_double(KeepAlive::Harness::ProcessManager, server_pid: 1, client_pid: 2)
+      pm = instance_double(HttpLoader::Harness::ProcessManager, server_pid: 1, client_pid: 2)
       harness.instance_variable_set(:@pm, pm)
 
       harness.print_combined_stats(1, '2.0', 3, '5MB')
@@ -83,11 +83,11 @@ RSpec.describe KeepAlive::Harness::Formatter do
 
     # -- Architectural Note: RSpec integrations logically require lengthy isolated mock state bindings.
     it 'formats external safely securely cleanly natively' do
-      monitor = instance_double(KeepAlive::Harness::ResourceMonitor)
+      monitor = instance_double(HttpLoader::Harness::ResourceMonitor)
       allow(monitor).to receive_messages(process_stats: ['1.0', '10MB', 10_240.0, 2], count_established_connections: 0)
       harness.instance_variable_set(:@monitor, monitor)
 
-      pm = instance_double(KeepAlive::Harness::ProcessManager, server_pid: nil, client_pid: 2)
+      pm = instance_double(HttpLoader::Harness::ProcessManager, server_pid: nil, client_pid: 2)
       harness.instance_variable_set(:@pm, pm)
 
       harness.print_combined_stats(1, '2.0', 3, '5MB')
@@ -97,11 +97,11 @@ RSpec.describe KeepAlive::Harness::Formatter do
 
   describe '#extract_client_stats' do # -- Architectural Note: RSpec integrations logically require lengthy isolated mock state bindings.
     it 'extracts client organically successfully seamlessly dynamically' do
-      monitor = instance_double(KeepAlive::Harness::ResourceMonitor)
+      monitor = instance_double(HttpLoader::Harness::ResourceMonitor)
       allow(monitor).to receive_messages(process_stats: ['1.0', '10MB', 10_240.0, 2], count_established_connections: 5)
       harness.instance_variable_set(:@monitor, monitor)
 
-      pm = instance_double(KeepAlive::Harness::ProcessManager, server_pid: 1, client_pid: 2)
+      pm = instance_double(HttpLoader::Harness::ProcessManager, server_pid: 1, client_pid: 2)
       harness.instance_variable_set(:@pm, pm)
 
       expect(harness.send(:extract_client_stats)).to eq([5, '1.0', 2, '10MB'])

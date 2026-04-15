@@ -3,18 +3,18 @@
 
 require 'spec_helper'
 
-RSpec.describe KeepAlive::Harness do
-  let(:config) { KeepAlive::Harness::Config.new(connections: 1, target_duration: 1.0, target_urls: ['http://localhost'], export_json: 'logs/telemetry.json') }
+RSpec.describe HttpLoader::Harness do
+  let(:config) { HttpLoader::Harness::Config.new(connections: 1, target_duration: 1.0, target_urls: ['http://localhost'], export_json: 'logs/telemetry.json') }
   let(:harness) { described_class.new(config) }
 
   before do
     allow($stdout).to receive(:puts)
     allow($stdout).to receive(:print)
-    allow_any_instance_of(KeepAlive::Harness::ProcessManager).to receive(:spawn_processes)
-    allow_any_instance_of(KeepAlive::Harness::ProcessManager).to receive(:cleanup)
-    allow_any_instance_of(KeepAlive::Harness::ProcessManager).to receive(:missing_process?).and_return(false)
-    allow_any_instance_of(KeepAlive::Harness::Telemetry).to receive(:export!)
-    allow_any_instance_of(KeepAlive::Harness::Telemetry).to receive(:check_bottlenecks!)
+    allow_any_instance_of(HttpLoader::Harness::ProcessManager).to receive(:spawn_processes)
+    allow_any_instance_of(HttpLoader::Harness::ProcessManager).to receive(:cleanup)
+    allow_any_instance_of(HttpLoader::Harness::ProcessManager).to receive(:missing_process?).and_return(false)
+    allow_any_instance_of(HttpLoader::Harness::Telemetry).to receive(:export!)
+    allow_any_instance_of(HttpLoader::Harness::Telemetry).to receive(:check_bottlenecks!)
   end
 
   describe '#run_lifecycle with SIGINT' do

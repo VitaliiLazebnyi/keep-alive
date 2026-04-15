@@ -1,16 +1,16 @@
 # typed: true
 # frozen_string_literal: true
 
-require 'keep_alive/client/config'
-require 'keep_alive/harness/config'
+require 'http_loader/client/config'
+require 'http_loader/harness/config'
 
 module ConfigHelpers
   def build_client(**)
-    KeepAlive::Client.new(KeepAlive::Client::Config.new(**))
+    HttpLoader::Client.new(HttpLoader::Client::Config.new(**))
   end
 
   def build_harness(**)
-    KeepAlive::Harness.new(KeepAlive::Harness::Config.new(**))
+    HttpLoader::Harness.new(HttpLoader::Harness::Config.new(**))
   end
 end
 

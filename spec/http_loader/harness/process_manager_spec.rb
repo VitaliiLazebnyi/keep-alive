@@ -2,11 +2,11 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'keep_alive/harness/process_manager'
-require 'keep_alive/harness/config'
+require 'http_loader/harness/process_manager'
+require 'http_loader/harness/config'
 
-RSpec.describe KeepAlive::Harness::ProcessManager do
-  let(:config) { KeepAlive::Harness::Config.new(target_urls: ['http://local'], connections: 1, use_https: false, client_args: [], export_json: nil) }
+RSpec.describe HttpLoader::Harness::ProcessManager do
+  let(:config) { HttpLoader::Harness::Config.new(target_urls: ['http://local'], connections: 1, use_https: false, client_args: [], export_json: nil) }
   let(:manager) { described_class.new(config) }
 
   describe '#missing_process?' do
@@ -20,7 +20,7 @@ RSpec.describe KeepAlive::Harness::ProcessManager do
     end
 
     it 'returns true when server dies gracefully explicitly' do
-      cfg = KeepAlive::Harness::Config.new(target_urls: [], connections: 1, use_https: false, client_args: [],
+      cfg = HttpLoader::Harness::Config.new(target_urls: [], connections: 1, use_https: false, client_args: [],
                                            export_json: nil)
       mgr = described_class.new(cfg)
 
@@ -45,7 +45,7 @@ RSpec.describe KeepAlive::Harness::ProcessManager do
     end
 
     context 'when target_urls is empty' do
-      let(:config) { KeepAlive::Harness::Config.new(connections: 1, target_duration: 1.0, target_urls: [], export_json: nil) }
+      let(:config) { HttpLoader::Harness::Config.new(connections: 1, target_duration: 1.0, target_urls: [], export_json: nil) }
 
       it 'spawns both server and client' do
         allow(FileUtils).to receive(:mkdir_p)

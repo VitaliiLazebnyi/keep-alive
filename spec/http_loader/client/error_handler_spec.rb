@@ -2,13 +2,13 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'keep_alive/client'
-require 'keep_alive/client/error_handler'
+require 'http_loader/client'
+require 'http_loader/client/error_handler'
 
-RSpec.describe KeepAlive::Client::ErrorHandler do
+RSpec.describe HttpLoader::Client::ErrorHandler do
   let(:dummy_class) do
     Class.new do
-      include KeepAlive::Client::ErrorHandler
+      include HttpLoader::Client::ErrorHandler
 
       attr_reader :logger
 
@@ -18,7 +18,7 @@ RSpec.describe KeepAlive::Client::ErrorHandler do
     end
   end
 
-  let(:logger) { instance_double(KeepAlive::Client::Logger, error: nil) }
+  let(:logger) { instance_double(HttpLoader::Client::Logger, error: nil) }
   let(:instance) { dummy_class.new(logger) }
 
   describe '#handle_err' do

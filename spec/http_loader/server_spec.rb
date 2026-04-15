@@ -3,7 +3,7 @@
 
 require 'spec_helper'
 
-RSpec.describe KeepAlive::Server do
+RSpec.describe HttpLoader::Server do
   let(:server) { described_class.new }
 
   before do

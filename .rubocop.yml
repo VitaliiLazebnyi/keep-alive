@@ -5,6 +5,9 @@ plugins:
   - rubocop-rspec
   - rubocop-md
 
+require:
+  - ./lib/rubocop/cop/keep_alive/adverb_spam.rb
+
 AllCops:
   NewCops: enable
   TargetRubyVersion: 4.0
@@ -41,3 +44,8 @@ RSpec/AnyInstance:
 
 RSpec/ContextWording:
   Enabled: false
+
+KeepAlive/AdverbSpam:
+  Enabled: true
+  Include:
+    - 'lib/**/*.rb'

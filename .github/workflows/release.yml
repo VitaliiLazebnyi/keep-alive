@@ -33,7 +33,7 @@ jobs:
           chmod 0600 ~/.gem/gem-private_key.pem
 
       - name: Build Gem
-        run: gem build keep_alive.gemspec
+        run: gem build http_loader.gemspec
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3

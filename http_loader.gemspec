@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require_relative 'lib/keep_alive/version'
+require_relative 'lib/http_loader/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = 'keep_alive'
-  spec.version       = KeepAlive::VERSION
+  spec.name          = 'http_loader'
+  spec.version       = HttpLoader::VERSION
   spec.authors       = ['Vitalii Lazebnyi']
   spec.email         = ['vitalii.lazebnyi.github@gmail.com']
 
@@ -13,11 +13,13 @@ Gem::Specification.new do |spec|
   spec.homepage      = 'https://github.com/VitaliiLazebnyi/keep-alive'
   spec.license       = 'MIT'
   spec.required_ruby_version = '>= 4.0'
-  spec.metadata['allowed_push_host'] = 'https://rubygems.org'
-  spec.metadata['source_code_uri']   = spec.homepage
+  spec.metadata['allowed_push_host']     = 'https://rubygems.org'
+  spec.metadata['source_code_uri']       = 'https://github.com/VitaliiLazebnyi/keep-alive'
+  spec.metadata['bug_tracker_uri']       = 'https://github.com/VitaliiLazebnyi/keep-alive/issues'
+  spec.metadata['changelog_uri']         = 'https://github.com/VitaliiLazebnyi/keep-alive/blob/main/CHANGELOG.md'
   spec.metadata['rubygems_mfa_required'] = 'true'
 
-  spec.cert_chain  = ['certs/keep_alive-public_cert.pem']
+  spec.cert_chain  = ['certs/http_loader-public_cert.pem']
   spec.signing_key = File.expand_path('~/.gem/gem-private_key.pem') if $PROGRAM_NAME =~ /gem\z/
 
   spec.files = %w[
@@ -27,12 +29,12 @@ Gem::Specification.new do |spec|
     PERFORMANCE_REPORT.md
     README.md
     REQUIREMENTS.md
-    keep_alive.gemspec
+    http_loader.gemspec
   ] + Dir.glob('{lib,bin,certs}/**/*', base: __dir__).select do |f|
     File.file?(File.expand_path(f, __dir__))
   end
   spec.bindir        = 'bin'
-  spec.executables   = ['keep_alive']
+  spec.executables   = ['http_loader']
   spec.require_paths = ['lib']
 
   spec.add_dependency 'async', '~> 2.39'
@@ -54,4 +56,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'ruby-prof', '~> 2.0'
   spec.add_development_dependency 'simplecov', '~> 0.22'
   spec.add_development_dependency 'sorbet', '~> 0.6'
+  spec.add_development_dependency 'yard', '~> 0.9'
+  spec.add_development_dependency 'yard-sorbet', '~> 0.8'
 end

@@ -6,8 +6,8 @@ require 'open3'
 require 'fileutils'
 require 'json'
 # Justified Exception: E2E Integration tests organically require complex sequential process bootstrapping mathematically stretching isolated expectation boundaries.
-RSpec.describe KeepAlive, type: :integration do
-  let(:bin_path) { File.expand_path('../../bin/keep_alive', __dir__) }
+RSpec.describe HttpLoader, type: :integration do
+  let(:bin_path) { File.expand_path('../../bin/http_loader', __dir__) }
   let(:log_dir) { File.expand_path('../../logs', __dir__) }
   let(:client_log) { File.join(log_dir, 'client.log') }
   let(:server_log) { File.join(log_dir, 'server.log') }
@@ -20,8 +20,8 @@ RSpec.describe KeepAlive, type: :integration do
   end
 
   after do
-    system('pkill -9 -f "keep_alive server"')
-    system('pkill -9 -f "keep_alive client"')
+    system('pkill -9 -f "http_loader server"')
+    system('pkill -9 -f "http_loader client"')
     sleep 0.5
   rescue StandardError
     # swallow any native cleanup discrepancies safely

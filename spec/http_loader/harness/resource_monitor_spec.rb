@@ -2,9 +2,9 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'keep_alive/harness/resource_monitor'
+require 'http_loader/harness/resource_monitor'
 
-RSpec.describe KeepAlive::Harness::ResourceMonitor do
+RSpec.describe HttpLoader::Harness::ResourceMonitor do
   let(:monitor) { described_class.new }
 
   describe '#process_stats' do

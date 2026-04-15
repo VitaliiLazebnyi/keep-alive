@@ -2,9 +2,9 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'keep_alive/client/logger'
+require 'http_loader/client/logger'
 
-RSpec.describe KeepAlive::Client::Logger do
+RSpec.describe HttpLoader::Client::Logger do
   require 'tmpdir'
 
   let(:logger) { described_class.new(true) }

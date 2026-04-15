@@ -14,6 +14,13 @@ RuboCop::RakeTask.new(:rubocop) do |task|
   task.fail_on_error = true
 end
 
+require 'yard'
+YARD::Rake::YardocTask.new do |t|
+  t.files   = ['lib/**/*.rb', 'bin/**/*']
+  t.options = ['--any', '--extra', '--opts'] # optional
+  t.stats_options = ['--list-undoc']
+end
+
 namespace :sorbet do
   desc 'Run Sorbet type checking'
   task :check do
