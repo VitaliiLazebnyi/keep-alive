@@ -10,13 +10,13 @@ Gem::Specification.new do |spec|
 
   spec.summary       = 'Keep-Alive High Concurrency Load Testing Framework'
   spec.description   = 'A performance testing tool for HTTP/HTTPS.'
-  spec.homepage      = 'https://github.com/VitaliiLazebnyi/keep-alive'
+  spec.homepage      = 'https://github.com/VitaliiLazebnyi/http_loader'
   spec.license       = 'MIT'
   spec.required_ruby_version = '>= 4.0'
   spec.metadata['allowed_push_host']     = 'https://rubygems.org'
-  spec.metadata['source_code_uri']       = 'https://github.com/VitaliiLazebnyi/keep-alive'
-  spec.metadata['bug_tracker_uri']       = 'https://github.com/VitaliiLazebnyi/keep-alive/issues'
-  spec.metadata['changelog_uri']         = 'https://github.com/VitaliiLazebnyi/keep-alive/blob/main/CHANGELOG.md'
+  spec.metadata['source_code_uri']       = 'https://github.com/VitaliiLazebnyi/http_loader'
+  spec.metadata['bug_tracker_uri']       = 'https://github.com/VitaliiLazebnyi/http_loader/issues'
+  spec.metadata['changelog_uri']         = 'https://github.com/VitaliiLazebnyi/http_loader/blob/main/CHANGELOG.md'
   spec.metadata['rubygems_mfa_required'] = 'true'
 
   spec.cert_chain  = ['certs/http_loader-public_cert.pem']
