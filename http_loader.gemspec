@@ -8,8 +8,13 @@ Gem::Specification.new do |spec|
   spec.authors       = ['Vitalii Lazebnyi']
   spec.email         = ['vitalii.lazebnyi.github@gmail.com']
 
-  spec.summary       = 'Keep-Alive High Concurrency Load Testing Framework'
-  spec.description   = 'A performance testing tool for HTTP/HTTPS.'
+  spec.summary       = 'High-concurrency asynchronous load testing console tool for HTTP/HTTPS.'
+  spec.description   = 'HttpLoader is a powerful, high-concurrency performance and load testing ' \
+                       'console tool. Built on asynchronous Ruby, it evaluates server limits by ' \
+                       'opening massive numbers of persistent connections and holding them open. ' \
+                       'It utilizes event-driven I/O with optional periodic ping requests to keep ' \
+                       'connections active, allowing you to rigorously benchmark maximum concurrent ' \
+                       'socket capacity with precision and minimal client-side overhead.'
   spec.homepage      = 'https://github.com/VitaliiLazebnyi/http_loader'
   spec.license       = 'MIT'
   spec.required_ruby_version = '>= 4.0'
