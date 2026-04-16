@@ -23,6 +23,7 @@ module RuboCop
       class AdverbSpam < RuboCop::Cop::Base
         extend AutoCorrector
 
+        # Detailed explanation of what the cop expects to find and correct when triggered.
         MSG = 'Avoid AI-generated spam inside comments (excessive adverbs/meaningless words).'
 
         # Triggered for each new file/investigation to scan comments for invalid documentation spam.

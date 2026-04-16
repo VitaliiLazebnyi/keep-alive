@@ -109,8 +109,8 @@ module HttpLoader
     #
     # @yield to caller upon catching OS interaction interruption manually.
     # @return [void]
-    sig { params('&': T.proc.void).void }
-    def setup_interrupt(&)
+    sig { params(blk: T.proc.void).void }
+    def setup_interrupt(&blk)
       trap('INT') do |_signo|
         puts "\n[Server] Shutting down immediately..."
         yield

@@ -33,8 +33,14 @@ jobs:
     - name: Run Tests
       run: bundle exec rspec
 
+    - name: Run Sorbet Type Checks
+      run: bundle exec srb tc
+
     - name: Generate YARD Documentation
       run: bundle exec yardoc
+
+    - name: Run YARD Stats
+      run: bundle exec yard stats --list-undoc
 
     - name: Check Gem Build
       run: gem build http_loader.gemspec
