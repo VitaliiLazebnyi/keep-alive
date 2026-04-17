@@ -1,15 +1,28 @@
-# YARD Documentation
+# OS / Editor
+.DS_Store
+*~
+*.swp
+
+# Ruby / Bundler
 *.gem
-*.json
+.gem/
+gems_unpacked/
+vendor/
+
+# Logs and Output
 *.log
 *.out
 *.pid
-.gem
-.yardoc/
-coverage
-doc/
-errors.txt
-gems_unpacked
-logs
+logs/
 rspec_output.txt
-vendor
+errors.txt
+
+# Coverage
+coverage/
+
+# YARD Documentation
+.yardoc/
+doc/
+
+# Misc
+*.json
