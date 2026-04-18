@@ -26,5 +26,5 @@ RSpec.configure do |config|
   config.shared_context_metadata_behavior = :apply_to_host_groups
 end
 require 'sorbet-runtime'
-T::Configuration.inline_type_error_handler = lambda { |_, _| }
-T::Configuration.call_validation_error_handler = lambda { |_, _| }
+T::Configuration.inline_type_error_handler = ->(_, _) {}
+T::Configuration.call_validation_error_handler = ->(_, _) {}

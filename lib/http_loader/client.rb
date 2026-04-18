@@ -66,7 +66,7 @@ module HttpLoader
       conn_tasks = T.let([], T::Array[Async::Task])
       @config.connections.times do |raw_i|
         i = raw_i
-        perform_sleep(calc_ramp, task: task) if calc_ramp > 0
+        perform_sleep(calc_ramp, task: task) if calc_ramp.positive?
         conn_tasks << sem.async { exec_conn(i) }
       end
 
@@ -88,9 +88,9 @@ module HttpLoader
     # @return [Float] the calculated ramp sleep duration
     sig { returns(Float) }
     def calc_ramp
-      if @config.ramp_up> 0
+      if @config.ramp_up.positive?
         @config.ramp_up.to_f / @config.connections
-      elsif @config.connections_per_second> 0
+      elsif @config.connections_per_second.positive?
         1.0 / @config.connections_per_second
       else
         0.0
@@ -184,7 +184,7 @@ module HttpLoader
     # @return [void]
     sig { params(idx: Integer, uri: URI::Generic, http: Net::HTTP, start_t: Time).void }
     def dispatch_sess(idx, uri, http, start_t)
-      if @config.slowloris_delay> 0
+      if @config.slowloris_delay.positive?
         @slow_sess.run(idx, uri, http, start_t)
       else
         @http_sess.run(idx, uri, http, start_t)

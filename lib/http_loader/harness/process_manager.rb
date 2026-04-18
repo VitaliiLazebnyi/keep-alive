@@ -71,8 +71,9 @@ module HttpLoader
       def spawn_server
         server_cmd = ['ruby', 'bin/http_loader', 'server']
         server_cmd << '--https' if @config.use_https
-        @server_pid = Process.spawn(Shellwords.join(server_cmd), out: File.join(@log_dir, 'server.log'),
-                                                 err: File.join(@log_dir, 'server.err'))
+        @server_pid = Process.spawn(
+          Shellwords.join(server_cmd), out: File.join(@log_dir, 'server.log'), err: File.join(@log_dir, 'server.err')
+        )
         puts "[Harness] Started server with PID #{@server_pid}"
         sleep(2)
       end
@@ -85,8 +86,9 @@ module HttpLoader
         client_cmd = ['ruby', 'bin/http_loader', 'client']
         client_cmd += @config.client_args.empty? ? ["--connections_count=#{@config.connections}"] : @config.client_args
 
-        @client_pid = Process.spawn(Shellwords.join(client_cmd), out: File.join(@log_dir, 'client.log'),
-                                                 err: File.join(@log_dir, 'client.err'))
+        @client_pid = Process.spawn(
+          Shellwords.join(client_cmd), out: File.join(@log_dir, 'client.log'), err: File.join(@log_dir, 'client.err')
+        )
         puts "[Harness] Started client with PID #{@client_pid}"
       end
 

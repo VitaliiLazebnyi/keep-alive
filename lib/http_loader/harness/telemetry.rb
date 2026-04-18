@@ -97,9 +97,9 @@ module HttpLoader
       sig { params(counts: T::Hash[Symbol, Integer]).returns(T::Array[String]) }
       def build_bottleneck_messages(counts)
         errors = []
-        errors << "[OS FDs Limit: #{counts[:emfile]} EMFILE]" if T.must(counts[:emfile])> 0
-        errors << "[OS Ports Limit: #{counts[:eaddr_count]} EADDRNOTAVAIL]" if T.must(counts[:eaddr_count])> 0
-        errors << "[OS Thread Limit: #{counts[:thread_errors]} ThreadError]" if T.must(counts[:thread_errors])> 0
+        errors << "[OS FDs Limit: #{counts[:emfile]} EMFILE]" if T.must(counts[:emfile]).positive?
+        errors << "[OS Ports Limit: #{counts[:eaddr_count]} EADDRNOTAVAIL]" if T.must(counts[:eaddr_count]).positive?
+        errors << "[OS Thread Limit: #{counts[:thread_errors]} ThreadError]" if T.must(counts[:thread_errors]).positive?
         errors
       end
     end

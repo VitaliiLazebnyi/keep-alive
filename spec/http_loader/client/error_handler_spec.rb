@@ -7,7 +7,7 @@ require 'http_loader/client/error_handler'
 
 RSpec.describe HttpLoader::Client::ErrorHandler do
   let(:dummy_class) do
-    Class.new(HttpLoader::Client) do
+    Class.new do
       include HttpLoader::Client::ErrorHandler
 
       attr_reader :logger

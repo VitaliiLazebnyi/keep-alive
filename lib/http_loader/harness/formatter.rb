@@ -16,16 +16,20 @@ module HttpLoader
       sig { void }
       def print_startup_banner
         harness = T.cast(self, HttpLoader::Harness)
-        msg = if harness.config.target_urls.size > 1
-                "**MULTIPLE TARGETS** (#{harness.config.target_urls.size} URLs)."
-              elsif harness.config.target_urls.size == 1
-                "**EXTERNAL URL** #{harness.config.target_urls.first}."
-              elsif harness.config.use_https
-                '**HTTPS**.'
-              else
-                '**HTTP**.'
-              end
-        Kernel.puts "[Harness] Starting test with #{harness.config.connections} connections to #{msg}"
+        Kernel.puts "[Harness] Starting test with #{harness.config.connections} connections to #{startup_target_msg(harness)}"
+      end
+
+      # Yields formatted message describing targeted context
+      # 
+      # @param harness [HttpLoader::Harness] reference to local context
+      # @return [String] formatted descriptor based on URLs count
+      sig { params(harness: HttpLoader::Harness).returns(String) }
+      def startup_target_msg(harness)
+        urls = harness.config.target_urls
+        return "**MULTIPLE TARGETS** (#{urls.size} URLs)." if urls.size > 1
+        return "**EXTERNAL URL** #{urls.first}." if urls.size == 1
+
+        harness.config.use_https ? '**HTTPS**.' : '**HTTP**.'
       end
 
       # Outputs the top layer header frame for the metrics table.
@@ -35,8 +39,7 @@ module HttpLoader
       def print_table_header
         Kernel.puts '[Harness] Monitoring resources (Press Ctrl+C to stop)...'
         Kernel.puts '-' * 125
-        Kernel.puts 'Time (UTC) | Real Conns  | Srv CPU/Thrds    | Srv Mem        | Srv Mem/Conn   | ' \
-             'Cli CPU/Thrds    | Cli Mem        | Cli Mem/Conn  '
+        Kernel.puts 'Time (UTC) | Real Conns  | Srv CPU/Thrds    | Srv Mem        | Srv Mem/Conn   | Cli CPU/Thrds    | Cli Mem        | Cli Mem/Conn  '
         Kernel.puts '-' * 125
       end
 
@@ -46,9 +49,11 @@ module HttpLoader
       # @return [void]
       sig { params(params: T::Hash[Symbol, T.untyped]).void }
       def log_table_row(params)
-        Kernel.puts Kernel.format('%<t>-10s | %<ac>-11s | %<sc>-16s | %<sm>-14s | %<sk>-14s | %<cc>-16s | %<cm>-14s | %<ck>-14s',
-                    t: params[:t], ac: params[:ac], sc: params[:sc], sm: params[:sm],
-                    sk: params[:sk], cc: params[:cc], cm: params[:cm], ck: params[:ck])
+        Kernel.puts Kernel.format(
+          '%<t>-10s | %<ac>-11s | %<sc>-16s | %<sm>-14s | %<sk>-14s | %<cc>-16s | %<cm>-14s | %<ck>-14s',
+          t: params[:t], ac: params[:ac], sc: params[:sc], sm: params[:sm],
+          sk: params[:sk], cc: params[:cc], cm: params[:cm], ck: params[:ck]
+        )
       end
 
       # Computes KB overhead proportionally to established sockets natively.

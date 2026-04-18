@@ -34,6 +34,7 @@ module HttpLoader
 
         socket_wrapper = T.cast(http.instance_variable_get(:@socket), T.nilable(Net::BufferedIO))
         return unless socket_wrapper
+
         io = socket_wrapper.io
         fire_initial_payload(io, uri)
         maintain_hold(client_index, io, start_time)
@@ -84,7 +85,7 @@ module HttpLoader
       def maintain_hold(client_index, io, start_time)
         loop do
           elapsed = Time.now - start_time
-          if @config.http_loader_timeout> 0.0 && elapsed >= @config.http_loader_timeout
+          if @config.http_loader_timeout > 0.0 && elapsed >= @config.http_loader_timeout
             @logger.info("[Client #{client_index}] Keep-alive timeout reached, closing Slowloris thread.")
             break
           end

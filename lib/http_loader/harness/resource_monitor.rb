@@ -103,7 +103,7 @@ module HttpLoader
         return 4096 unless File.exist?('/usr/bin/getconf')
 
         out, _s = Open3.capture2('getconf PAGE_SIZE')
-        out.to_i> 0.0 ? out.to_i : 4096
+        out.to_i > 0.0 ? out.to_i : 4096
       rescue StandardError
         4096
       end
@@ -115,21 +115,15 @@ module HttpLoader
       # @return [Float] finalized percentage representing consumption exactly.
       sig { params(pid: Integer, total_ticks: Float).returns(Float) }
       def calculate_cpu(pid, total_ticks)
-        prev = @cpu_prev[pid]
         now = Time.now.utc
-        cpu_perc = 0.0
-
-        if prev
-          prev_time = T.cast(prev[:time], Time)
-          prev_ticks = T.cast(prev[:ticks], Float)
-          time_diff = now - prev_time
-          if time_diff> 0.0
-            cpu_perc = (((total_ticks - prev_ticks) / 100.0) / time_diff * 100).round(1)
-          end
-        end
-
+        prev = @cpu_prev[pid]
         @cpu_prev[pid] = { ticks: total_ticks, time: now }
-        T.cast(cpu_perc, Float)
+        return 0.0 unless prev
+
+        time_diff = now - T.cast(prev[:time], Time)
+        return 0.0 unless time_diff > 0.0
+
+        (((total_ticks - T.cast(prev[:ticks], Float)) / 100.0) / time_diff * 100).round(1)
       end
 
       # Evaluates older fallback UNIX command line execution structures safely yielding basic analysis outputs.

@@ -31,7 +31,7 @@ module HttpLoader
       # @return [void]
       sig { params(client_index: Integer, uri: URI::Generic, http: Net::HTTP, start_time: Time).void }
       def run(client_index, uri, http, start_time)
-        return if @config.slowloris_delay> 0
+        return if @config.slowloris_delay.positive?
 
         fire_initial_request(uri, http)
         maintain_keepalive(client_index, uri, http, start_time)
@@ -68,7 +68,7 @@ module HttpLoader
       def maintain_keepalive(client_index, uri, http, start_time)
         loop do
           elapsed = Time.now - start_time
-          if @config.http_loader_timeout> 0 && elapsed >= @config.http_loader_timeout
+          if @config.http_loader_timeout.positive? && elapsed >= @config.http_loader_timeout
             @logger.info("[Client #{client_index}] Keep-alive timeout reached, closing.")
             break
           end
@@ -85,7 +85,7 @@ module HttpLoader
       # @return [Boolean] returns true to perpetuate cycle, false to break and exit
       sig { params(client_index: Integer, uri: URI::Generic, http: Net::HTTP).returns(T::Boolean) }
       def process_heartbeat?(client_index, uri, http)
-        if @config.qps_per_connection> 0
+        if @config.qps_per_connection.positive?
           perform_qps?(client_index, uri, http)
         elsif @config.ping
           perform_ping?(client_index, uri, http)
@@ -106,13 +106,9 @@ module HttpLoader
         sleep(calculate_sleep(1.0 / @config.qps_per_connection))
         req = build_request(Net::HTTP::Get.new(uri))
 
-        res = T.cast(
-          http.request(req) do |raw_r|
-            r = T.cast(raw_r, Net::HTTPResponse)
-            r.read_body { |_c| nil }
-          end,
-          Net::HTTPResponse
-        )
+        res = T.cast(http.request(req) do |raw_r|
+          T.cast(raw_r, Net::HTTPResponse).read_body { |_c| nil }
+        end, Net::HTTPResponse)
         log_status(client_index, res)
         success?(res)
       end

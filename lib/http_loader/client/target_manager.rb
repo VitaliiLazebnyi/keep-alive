@@ -79,10 +79,8 @@ module HttpLoader
       def apply_proxy!(opts, client_index)
         pool = @config.proxy_pool
         proxy_uri = URI.parse(T.must(pool[client_index % pool.size]))
-        opts[:proxy_address] = proxy_uri.host
-        opts[:proxy_port] = proxy_uri.port
-        opts[:proxy_user] = proxy_uri.user if proxy_uri.user
-        opts[:proxy_pass] = proxy_uri.password if proxy_uri.password
+        opts.merge!(proxy_address: proxy_uri.host, proxy_port: proxy_uri.port)
+        opts.merge!(proxy_user: proxy_uri.user, proxy_pass: proxy_uri.password) if proxy_uri.user || proxy_uri.password
       end
 
       private

@@ -6,7 +6,7 @@ plugins:
   - rubocop-md
 
 require:
-  - ./lib/rubocop/cop/ai/adverb_spam.rb
+  - rubocop-ai
 
 AllCops:
   NewCops: enable

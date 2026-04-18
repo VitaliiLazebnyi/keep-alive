@@ -62,5 +62,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'simplecov', '~> 0.22'
   spec.add_development_dependency 'sorbet', '~> 0.6'
   spec.add_development_dependency 'yard', '~> 0.9'
+  spec.add_development_dependency 'rubocop-ai', '~> 0.1'
   spec.add_development_dependency 'yard-sorbet', '~> 0.8'
 end

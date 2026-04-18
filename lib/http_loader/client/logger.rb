@@ -71,6 +71,7 @@ module HttpLoader
       sig { params(message: String).void }
       def info(message)
         return unless @verbose
+
         # ! SORBET BYPASS: Queue push allows Object
         @log_queue << [:info, "[#{Time.now.utc.iso8601}] #{message}"]
       end
@@ -112,11 +113,7 @@ module HttpLoader
       sig { params(log: File, err: File).void }
       def drain_queue(log, err)
         loop do
-          popped = begin
-            @log_queue.pop(true)
-          rescue ThreadError
-            nil
-          end
+          popped = begin; @log_queue.pop(true); rescue ThreadError; nil; end
           msg_raw = T.cast(popped, T.nilable(T.any(Symbol, T::Array[T.any(Symbol, String)])))
           break unless msg_raw
 

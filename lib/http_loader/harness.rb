@@ -96,7 +96,7 @@ module HttpLoader
     sig { returns(T::Boolean) }
     def duration_exceeded?
       elapsed = Time.now.utc - @start_time
-      return false unless @config.target_duration> 0.0 && elapsed >= @config.target_duration
+      return false unless @config.target_duration > 0.0 && elapsed >= @config.target_duration
 
       puts "[Harness] Target duration mathematically reached (#{@config.target_duration}s). auto-shutdown."
       true
@@ -136,7 +136,7 @@ module HttpLoader
     # @return [Boolean] flags if logical expectations are broken natively
     sig { params(active: Integer, c_cpu: String, c_th: Integer, c_m: String).returns(T::Boolean) }
     def missing_socket?(active, c_cpu, c_th, c_m)
-      return false unless @config.target_urls.any? && @peak_connections> 0.0 && active.zero?
+      return false unless @config.target_urls.any? && @peak_connections > 0.0 && active.zero?
 
       log_table_row(
         t: Time.now.utc.strftime('%H:%M:%S'), ac: active, sc: 'EXTERNAL', sm: 'N/A',
