@@ -79,6 +79,7 @@ module HttpLoader
     # @return [void]
     sig { void }
     def log_startup_message
+      @logger.info("Starting #{@config.connections} #{@target_manager.protocol_label} connections")
       puts "[Client] Starting #{@config.connections} #{@target_manager.protocol_label} connections to targeted urls..."
       puts '[Client] Note: Output of individual pings is suppressed.' unless @config.verbose
     end
